@@ -1,0 +1,37 @@
+{
+  "name": "@vibecoding-ru/tokenmax",
+  "version": "0.1.0",
+  "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokenmax leaderboard (tokenmax.vibecoding.ru). Aggregates only — never your prompts, files, or keys.",
+  "type": "module",
+  "bin": {
+    "tokenmax": "bin/tokenmax.mjs",
+    "vibecoding-tokenmax": "bin/tokenmax.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vibecoding-ru/tokenmax.git"
+  },
+  "homepage": "https://tokenmax.vibecoding.ru",
+  "keywords": [
+    "codex",
+    "claude-code",
+    "tokens",
+    "usage",
+    "leaderboard",
+    "tokenmax",
+    "vibecoding"
+  ],
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/tokenmax.mjs"
+  }
+}
