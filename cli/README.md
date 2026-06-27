@@ -1,4 +1,4 @@
-# @vibecoding-ru/tokenmax
+# tokenmax-ru
 
 Считает, сколько токенов ты сжёг в **Codex** и **Claude Code** на этой машине,
 переводит это в **API-equivalent** доллары и публикует агрегат на публичный
@@ -7,7 +7,7 @@
 Одной командой:
 
 ```bash
-npx @vibecoding-ru/tokenmax <nick>
+npx tokenmax-ru <nick>
 ```
 
 После публикации твой профиль виден на `https://tokenmax.vibecoding.ru/<nick>`.
@@ -32,10 +32,10 @@ Node и глобальный `fetch`).
 
 ```bash
 # разово, без установки
-npx @vibecoding-ru/tokenmax <nick>
+npx tokenmax-ru <nick>
 
 # или глобально
-npm i -g @vibecoding-ru/tokenmax
+npm i -g tokenmax-ru
 tokenmax <nick>
 ```
 

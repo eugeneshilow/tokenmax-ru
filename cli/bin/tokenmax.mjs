@@ -5,7 +5,7 @@
 // tokenmax leaderboard (tokenmax.vibecoding.ru).
 //
 // Happy path is one command:
-//   npx @vibecoding-ru/tokenmax <nick>
+//   npx tokenmax-ru <nick>
 //
 // SAFETY INVARIANT: only numeric token aggregates per model + dates leave this
 // machine. Never prompt text, file contents, API keys, or raw log lines.
@@ -135,7 +135,7 @@ async function main() {
     return 0;
   }
   if (!opts.nick) {
-    console.error('Укажи ник: npx @vibecoding-ru/tokenmax <nick>  (--help для справки)');
+    console.error('Укажи ник: npx tokenmax-ru <nick>  (--help для справки)');
     return 2;
   }
   if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
