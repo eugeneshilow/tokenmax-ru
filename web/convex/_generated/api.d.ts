@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin_tmx from "../admin_tmx.js";
 import type * as http from "../http.js";
 import type * as lib_tmx from "../lib/tmx.js";
 import type * as lib_tmx_pricing from "../lib/tmx_pricing.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin_tmx: typeof admin_tmx;
   http: typeof http;
   "lib/tmx": typeof lib_tmx;
   "lib/tmx_pricing": typeof lib_tmx_pricing;
