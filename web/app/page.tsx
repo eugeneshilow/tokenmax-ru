@@ -8,7 +8,7 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const SELF_SERVE_ONELINER = 'npx tokmax <твой-ник>'
+const SELF_SERVE_ONELINER = 'npx tokmax'
 
 export const metadata: Metadata = {
   title: 'tokenmax — публичный счётчик API-equivalent расхода токенов',

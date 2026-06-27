@@ -4,13 +4,14 @@
 переводит это в **API-equivalent** доллары и публикует агрегат на публичный
 лидерборд [tokenmax.ru](https://tokenmax.ru).
 
-Одной командой:
+Одной командой — короткий онбординг (2 шага с прогресс-баром: ник → как считать):
 
 ```bash
-npx tokmax <nick>
+npx tokmax
 ```
 
-После публикации твой профиль виден на `https://tokenmax.ru/<nick>`.
+Или сразу с ником, без вопросов: `npx tokmax <nick>`. После публикации твой
+профиль виден на `https://tokenmax.ru/<nick>`.
 
 ## Что именно уходит наружу (и что — нет)
 
@@ -31,19 +32,23 @@ npx tokmax <nick>
 Node и глобальный `fetch`).
 
 ```bash
-# разово, без установки
+# разово, без установки — запустит онбординг (ник + как считать)
+npx tokmax
+
+# или сразу с ником
 npx tokmax <nick>
 
 # или глобально
 npm i -g tokmax
-tokenmax <nick>
+tokmax
 ```
 
 ### Опции
 
 ```text
-tokenmax <nick> [options]
+tokmax [<nick>] [options]
 
+  --onboard            принудительно запустить онбординг
   --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)
   --key <secret>       capability-токен для обновления уже занятого ника
   --api <baseUrl>      базовый URL API

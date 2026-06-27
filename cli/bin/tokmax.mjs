@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 //
-// tokenmax — scan local Codex + Claude Code logs, aggregate per-model
-// token usage, preview the API-equivalent $, and publish the aggregate to the
+// tokmax — scan local Codex + Claude Code logs, aggregate per-model token
+// usage, preview the API-equivalent $, and publish the aggregate to the
 // tokenmax leaderboard (tokenmax.ru).
 //
-// Happy path is one command:
-//   npx tokmax <nick>
+// Two ways to run:
+//   npx tokmax            → short interactive onboarding (2 steps, progress bar)
+//   npx tokmax <nick>     → fast direct path (no prompts)
 //
 // SAFETY INVARIANT: only numeric token aggregates per model + dates leave this
 // machine. Never prompt text, file contents, API keys, or raw log lines.
@@ -24,6 +25,7 @@ import { publish } from '../src/publish.mjs';
 import { loadSecret, saveSecret } from '../src/secrets.mjs';
 
 const DEFAULT_API = 'https://chatty-boar-479.convex.site';
+const PAGE_BASE = 'https://tokenmax.vibecoding.ru'; // canonical served page (availability check)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv) {
@@ -33,8 +35,11 @@ function parseArgs(argv) {
     key: null,
     api: DEFAULT_API,
     machine: os.hostname(),
+    sources: null, // null = both; { claude, codex }
+    subscriptionUsd: null,
     dryRun: false,
     yes: false,
+    onboard: false,
     help: false,
   };
   const rest = [];
@@ -55,6 +60,9 @@ function parseArgs(argv) {
         break;
       case '--dry-run':
         opts.dryRun = true;
+        break;
+      case '--onboard':
+        opts.onboard = true;
         break;
       case '--yes':
       case '-y':
@@ -77,17 +85,18 @@ function parseArgs(argv) {
   return opts;
 }
 
-const HELP = `tokmax <nick> [options]
+const HELP = `tokmax — публичный счётчик API-equivalent расхода токенов
 
-  Сканирует локальные логи Codex и Claude Code, считает токены по моделям,
-  показывает API-equivalent в долларах и публикует агрегат на лидерборд
-  tokenmax.ru. Наружу уходят только числа — не логи и не ключи.
+Запуск:
+  npx tokmax            короткий онбординг (2 шага, прогресс-бар)
+  npx tokmax <nick>     быстрый прямой путь без вопросов
 
 Options:
   --since YYYY-MM-DD   считать только с этого дня (по умолчанию — вся история)
   --key <secret>       capability-токен для обновления уже занятого ника
   --api <baseUrl>      базовый URL API (по умолчанию tokenmax deployment)
   --machine <label>    метка машины (по умолчанию hostname)
+  --onboard            принудительно запустить онбординг
   --dry-run            показать превью и тело запроса, ничего не публиковать
   --yes, -y            не спрашивать подтверждение
   --help, -h           показать эту справку`;
@@ -114,6 +123,15 @@ async function readPackageVersion() {
   }
 }
 
+function readAllStdin() {
+  return new Promise((resolve) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (c) => (data += c));
+    process.stdin.on('end', () => resolve(data));
+  });
+}
+
 function confirm(question) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -122,10 +140,143 @@ function confirm(question) {
     });
     rl.question(question, (answer) => {
       rl.close();
-      resolve(/^y(es)?$/i.test(answer.trim()));
+      resolve(/^(y(es)?|д(а)?)$/i.test(answer.trim()));
     });
   });
 }
+
+// ── Onboarding ──────────────────────────────────────────────────────────────
+
+function progressBar(step, total) {
+  const cells = 14;
+  const filled = Math.round((step / total) * cells);
+  return `[${'█'.repeat(filled)}${'░'.repeat(cells - filled)}]  шаг ${step}/${total}`;
+}
+
+function validateNick(raw) {
+  const nick = String(raw || '').trim();
+  if (!nick) return { ok: false, msg: 'пустой ник' };
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,31}$/.test(nick)) {
+    return {
+      ok: false,
+      msg: 'только латиница/цифры/дефис/подчёркивание, 2–32 символа, начинается с буквы или цифры',
+    };
+  }
+  return { ok: true, nick };
+}
+
+async function checkAvailability(nick) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${PAGE_BASE}/${encodeURIComponent(nick)}`, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (res.status === 200) return 'taken';
+    if (res.status === 404) return 'free';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function runOnboarding(cliVersion) {
+  // Adaptive input: real terminal → readline; piped (testing/scripting) →
+  // pre-buffered lines (readline closes on a piped stream's EOF mid-flow).
+  const isTty = Boolean(process.stdin.isTTY);
+  const rl = isTty
+    ? readline.createInterface({ input: process.stdin, output: process.stdout })
+    : null;
+  const buffered = isTty ? [] : (await readAllStdin()).split('\n');
+  let bi = 0;
+  const ask = (q) => {
+    if (isTty) return new Promise((r) => rl.question(q, r));
+    process.stdout.write(q);
+    const ans = buffered[bi++] ?? '';
+    process.stdout.write(`${ans}\n`);
+    return Promise.resolve(ans);
+  };
+  const config = {
+    nick: null,
+    since: null,
+    sources: { claude: true, codex: true },
+    subscriptionUsd: null,
+  };
+  try {
+    console.log(`\n  tokmax v${cliVersion} — публичный счётчик твоих токенов`);
+    console.log(`  Соберём твою страницу на ${PAGE_BASE.replace('https://', '')}/<ник>.\n`);
+
+    // ── Step 1/2 — ник ──
+    console.log(progressBar(1, 2));
+    for (;;) {
+      const raw = await ask('Шаг 1/2 · придумай ник: ');
+      const v = validateNick(raw);
+      if (!v.ok) {
+        console.log(`  ✗ ${v.msg}\n`);
+        continue;
+      }
+      process.stdout.write('  проверяю занятость…');
+      const avail = await checkAvailability(v.nick.toLowerCase());
+      process.stdout.write('\r\x1b[K');
+      if (avail === 'taken') {
+        const a = await ask(
+          rl,
+          `  ✗ «${v.nick}» уже занят. [д] это мой — обновить · [Enter] выбрать другой: `,
+        );
+        if (/^(д(а)?|y(es)?)$/i.test(a.trim())) {
+          config.nick = v.nick;
+          break;
+        }
+        console.log('');
+        continue;
+      }
+      console.log(avail === 'free' ? `  ✓ «${v.nick}» свободен\n` : `  · беру «${v.nick}»\n`);
+      config.nick = v.nick;
+      break;
+    }
+
+    // ── Step 2/2 — режим ──
+    console.log(progressBar(2, 2));
+    console.log('Шаг 2/2 · как считать?');
+    console.log('  [1] По умолчанию — вся история, Codex + Claude Code  (рекомендую)');
+    console.log('  [2] Настроить — период, источники, подписка');
+    const mode = (await ask('  выбор [1/2, Enter=1]: ')).trim();
+
+    if (mode === '2') {
+      // период
+      for (;;) {
+        const s = (await ask('  период — с какой даты? (YYYY-MM-DD, Enter = вся история): ')).trim();
+        if (!s) break;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          config.since = s;
+          break;
+        }
+        console.log('  ✗ формат YYYY-MM-DD');
+      }
+      // источники
+      const src = (
+        await ask('  источники — [Enter] оба · [c] только Claude Code · [x] только Codex: ')
+      )
+        .trim()
+        .toLowerCase();
+      if (src === 'c') config.sources = { claude: true, codex: false };
+      else if (src === 'x') config.sources = { claude: false, codex: true };
+      // подписка
+      const sub = (await ask('  сколько платишь за подписки в месяц, $? (Enter = пропустить): ')).trim();
+      const n = Number(sub.replace(/[^0-9.]/g, ''));
+      if (Number.isFinite(n) && n > 0) config.subscriptionUsd = n;
+    }
+    console.log('');
+  } finally {
+    if (rl) rl.close();
+  }
+  return config;
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
@@ -134,8 +285,24 @@ async function main() {
     console.log(HELP);
     return 0;
   }
+
+  const cliVersion = await readPackageVersion();
+
+  // No nick + interactive terminal (or --onboard) → run the onboarding.
+  if (opts.onboard || (!opts.nick && process.stdin.isTTY)) {
+    const cfg = await runOnboarding(cliVersion);
+    if (!cfg.nick) {
+      console.error('Онбординг отменён.');
+      return 1;
+    }
+    opts.nick = cfg.nick;
+    opts.since = cfg.since;
+    opts.sources = cfg.sources;
+    opts.subscriptionUsd = cfg.subscriptionUsd;
+  }
+
   if (!opts.nick) {
-    console.error('Укажи ник: npx tokmax <nick>  (--help для справки)');
+    console.error('Укажи ник: npx tokmax <nick>  (или запусти npx tokmax без аргументов)');
     return 2;
   }
   if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
@@ -145,22 +312,36 @@ async function main() {
 
   const nick = opts.nick.trim();
   const nickKey = nick.toLowerCase();
-  const cliVersion = await readPackageVersion();
 
   console.log(`tokmax v${cliVersion} · ник: ${nick}`);
   console.log('Сканирую локальные логи…');
 
-  const [claude, codex] = await Promise.all([scanClaudeCode(), scanCodex()]);
-
+  const sources = opts.sources || { claude: true, codex: true };
+  const tasks = [];
+  if (sources.claude) tasks.push(scanClaudeCode().then((r) => ({ tool: 'claude', r })));
+  if (sources.codex) tasks.push(scanCodex().then((r) => ({ tool: 'codex', r })));
+  if (!tasks.length) {
+    console.error('Не выбрано ни одного источника.');
+    return 1;
+  }
+  const wrapped = await Promise.all(tasks);
+  const scanned = wrapped.map((w) => w.r);
   console.log(
-    `  Claude Code: ${claude.sessionCount} сессий · Codex: ${codex.sessionCount} сессий`,
+    '  ' +
+      wrapped
+        .map((w) =>
+          w.tool === 'claude'
+            ? `Claude Code: ${w.r.sessionCount} сессий`
+            : `Codex: ${w.r.sessionCount} сессий`,
+        )
+        .join(' · '),
   );
 
-  const agg = aggregate([claude, codex], { since: opts.since });
+  const agg = aggregate(scanned, { since: opts.since });
 
   if (!agg.models.length || agg.totalTokens === 0) {
     console.error(
-      'Не нашёл токенов в логах (с учётом --since). Публиковать нечего.',
+      'Не нашёл токенов в логах (с учётом фильтров). Публиковать нечего.',
     );
     return 1;
   }
@@ -176,8 +357,8 @@ async function main() {
   const usd = previewCost(pricing, agg.models);
 
   console.log(
-    `Период: ${agg.firstDay} → ${agg.lastDay} (всё, что нашлось)` +
-      (opts.since ? ` · фильтр --since ${opts.since}` : ''),
+    `Период: ${agg.firstDay} → ${agg.lastDay}` +
+      (opts.since ? ` · фильтр с ${opts.since}` : ' (всё, что нашлось)'),
   );
   console.log('Модели:');
   for (const m of agg.models) {
@@ -186,6 +367,22 @@ async function main() {
   }
   console.log(`Всего токенов: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
+
+  // Subscription comparison (CLI-side preview of the flex).
+  if (opts.subscriptionUsd && agg.firstDay && agg.lastDay) {
+    const days = Math.max(
+      1,
+      Math.round((Date.parse(agg.lastDay) - Date.parse(agg.firstDay)) / 86400000) + 1,
+    );
+    const months = Math.max(1, days / 30);
+    const subTotal = opts.subscriptionUsd * months;
+    const ratio = subTotal > 0 ? usd / subTotal : 0;
+    console.log(
+      `Подписка: $${fmtUsd(opts.subscriptionUsd)}/мес × ${months.toFixed(1)} мес ≈ $${fmtUsd(subTotal)} → ` +
+        `API-equivalent отбил подписку в ${ratio.toFixed(1)}×`,
+    );
+  }
+
   console.log('Наружу уйдёт только агрегат (числа), не логи и не ключи.');
 
   const body = {
@@ -243,7 +440,7 @@ async function main() {
     if (json.suspicious) {
       console.log('⚠️  Сервер пометил сабмит как suspicious (на ручную проверку).');
     }
-    console.log(`\n  ${json.url}\n`);
+    console.log(`\n  Готово! Твоя страница: ${json.url}\n`);
     return 0;
   }
 

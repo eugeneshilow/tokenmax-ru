@@ -17,7 +17,7 @@ type TmxNickPageProps = {
   params: Promise<{ nick: string }>
 }
 
-const SELF_SERVE_ONELINER = 'npx tokmax <твой-ник>'
+const SELF_SERVE_ONELINER = 'npx tokmax'
 
 export async function generateMetadata({ params }: TmxNickPageProps): Promise<Metadata> {
   const { nick: rawNick } = await params
