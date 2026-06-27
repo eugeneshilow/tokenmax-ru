@@ -5,7 +5,7 @@
 // tokenmax leaderboard (tokenmax.ru).
 //
 // Happy path is one command:
-//   npx tokenmax-ru <nick>
+//   npx tokmax <nick>
 //
 // SAFETY INVARIANT: only numeric token aggregates per model + dates leave this
 // machine. Never prompt text, file contents, API keys, or raw log lines.
@@ -77,7 +77,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-const HELP = `tokenmax <nick> [options]
+const HELP = `tokmax <nick> [options]
 
   Сканирует локальные логи Codex и Claude Code, считает токены по моделям,
   показывает API-equivalent в долларах и публикует агрегат на лидерборд
@@ -135,7 +135,7 @@ async function main() {
     return 0;
   }
   if (!opts.nick) {
-    console.error('Укажи ник: npx tokenmax-ru <nick>  (--help для справки)');
+    console.error('Укажи ник: npx tokmax <nick>  (--help для справки)');
     return 2;
   }
   if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
@@ -147,7 +147,7 @@ async function main() {
   const nickKey = nick.toLowerCase();
   const cliVersion = await readPackageVersion();
 
-  console.log(`tokenmax v${cliVersion} · ник: ${nick}`);
+  console.log(`tokmax v${cliVersion} · ник: ${nick}`);
   console.log('Сканирую локальные логи…');
 
   const [claude, codex] = await Promise.all([scanClaudeCode(), scanCodex()]);

@@ -98,7 +98,7 @@ export default async function TmxNickOgImage({ params }: TmxOgImageProps) {
             </div>
           </div>
           <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: '#18D86B' }}>
-            npx tokenmax-ru
+            npx tokmax
           </div>
         </div>
       ),

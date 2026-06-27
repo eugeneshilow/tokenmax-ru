@@ -1,4 +1,4 @@
-# tokenmax-ru
+# tokmax
 
 Считает, сколько токенов ты сжёг в **Codex** и **Claude Code** на этой машине,
 переводит это в **API-equivalent** доллары и публикует агрегат на публичный
@@ -7,7 +7,7 @@
 Одной командой:
 
 ```bash
-npx tokenmax-ru <nick>
+npx tokmax <nick>
 ```
 
 После публикации твой профиль виден на `https://tokenmax.ru/<nick>`.
@@ -32,10 +32,10 @@ Node и глобальный `fetch`).
 
 ```bash
 # разово, без установки
-npx tokenmax-ru <nick>
+npx tokmax <nick>
 
 # или глобально
-npm i -g tokenmax-ru
+npm i -g tokmax
 tokenmax <nick>
 ```
 

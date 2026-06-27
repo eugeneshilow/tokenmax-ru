@@ -1,11 +1,10 @@
 {
-  "name": "tokenmax-ru",
+  "name": "tokmax",
   "version": "0.1.0",
   "description": "Scan your local Codex + Claude Code logs, aggregate per-model token usage, and publish the API-equivalent $ to the tokenmax leaderboard (tokenmax.ru). Aggregates only — never your prompts, files, or keys.",
   "type": "module",
   "bin": {
-    "tokenmax-ru": "bin/tokenmax.mjs",
-    "tokenmax": "bin/tokenmax.mjs"
+    "tokmax": "bin/tokmax.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -13,7 +12,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eugeneshilow/tokenmax-ru.git"
+    "url": "git+https://github.com/eugeneshilow/tokmax.git"
   },
   "homepage": "https://tokenmax.ru",
   "keywords": [
@@ -32,6 +31,6 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node bin/tokenmax.mjs"
+    "start": "node bin/tokmax.mjs"
   }
 }
