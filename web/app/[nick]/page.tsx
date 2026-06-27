@@ -84,7 +84,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
           const subTotal = profile.subscriptionUsd * months
           const ratio = subTotal > 0 ? profile.costUsd / subTotal : 0
           const profit = profile.costUsd - subTotal
-          return { months, subTotal, ratio, profit }
+          return { months, subTotal, ratio, profit, sub: profile.subscriptionUsd }
         })()
       : null
 
@@ -158,7 +158,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                   </p>
                 </div>
                 <p className="max-w-md text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                  Подписка {formatUsdPrecise(profile.subscriptionUsd)}/мес — за период это ≈{' '}
+                  Подписка {formatUsdPrecise(econ.sub)}/мес — за период это ≈{' '}
                   {formatUsdPrecise(econ.subTotal)}. API-equivalent {formatUsdPrecise(profile.costUsd)}{' '}
                   → отбил подписку в {econ.ratio.toFixed(1)}×
                   {econ.profit >= 0 ? `, сэкономил +${formatUsdPrecise(econ.profit)}` : ''}.
