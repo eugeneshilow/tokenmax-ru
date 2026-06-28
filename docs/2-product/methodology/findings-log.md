@@ -5,6 +5,20 @@ Append-only, **новое сверху**. Сюда складываем выяс
 
 ---
 
+## 2026-06-28 · Рефактор внедрён + грабли деплоя
+**Сделано:** цены ← LiteLLM (бандл `cli/src/pricing/` + override 1:1 со старой таблицей →
+число не сдвинулось), CLI считает $ нашей формулой и шлёт `sources[]`/`totals.costUsd`,
+Convex = dumb-store (hard-cut pre-0.7, caps на клиентском cost), `tmx_pricing.ts` +
+`/api/tmx/pricing` удалены. Атрибуция на странице (RU/EN) + README + npm. cli **0.7.0**.
+Провалидировано: dry-run $3,109–3,125 (НЕ $5,593), prod runtime-тесты (gate/caps/happy) ✓.
+**Грабли:** (1) `npx convex codegen` ≠ деплой — он только регенерит типы, код на деплой
+НЕ пушит (агент решил, что запушил → я тестил старый код, гейт «не сработал»; на самом
+деле гейт верный). Деплой = `convex dev --once` (dev) / `convex deploy` (prod). (2) dev
+был НЕ пуст — реальная строка `nikmcfly` (старая схема) блокировала миграцию (drop
+`hasUnknownModels`); на песочнице чистится `purgeNick`, на проде было пусто. (3) `tmxFloat`
+КЛАМПит к hard-cap (250k) до мутации → отправка $300k стала suspicious-$250k (скрыта), а
+не value_too_high — это ок (видимого фейка нет), но знать.
+
 ## 2026-06-28 · ccusage завышает Codex: cache-read по полной input-ставке (×10)
 **Находка:** ccusage тарифицирует Codex **cached-read** токены по полной **input**-ставке
 ($5/1M), а не по дисконту cache-read ($0.5/1M). Наш Codex на 93% из cache-read (1.63B из
