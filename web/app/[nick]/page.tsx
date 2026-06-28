@@ -1,6 +1,7 @@
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import {
   loadTmxProfile,
+  loadTmxLeaderboard,
   type TmxProfileDaily,
   type TmxProfileSource,
 } from '@/lib/tmx-profile-live'
@@ -106,6 +107,11 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
 
   const machines = profile.machineLabels.join(' + ') || '—'
 
+  // Ранг в лидерборде (фидбек @nikmcfly: «без лидерборда я как лох со ссылкой»).
+  const board = await loadTmxLeaderboard(200)
+  const rankIdx = board.findIndex((r) => r.nick === profile.nick)
+  const rank = rankIdx >= 0 ? rankIdx + 1 : null
+
   // Bilingual copy: RU для русскоязычных браузеров, EN по умолчанию.
   const t = isRu
     ? {
@@ -144,6 +150,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         statPeakLabel: 'Пик дня',
         statPeakDetail: peakDay ? `${peakDay.date}: самый горячий день` : 'нет дневных данных',
         attribution: 'Цены: LiteLLM · Подсчёт: ccusage',
+        leaderboardCta: rank ? `🏆 #${rank} в рейтинге` : 'Лидерборд →',
       }
     : {
         heroVerb: 'burned',
@@ -181,6 +188,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         statPeakLabel: 'Peak day',
         statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
         attribution: 'Prices: LiteLLM · Counting: ccusage',
+        leaderboardCta: rank ? `🏆 #${rank} on the board` : 'Leaderboard →',
       }
 
   const statCards = [
@@ -275,6 +283,13 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 rel="noopener noreferrer"
               >
                 @shilovtech
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
+              >
+                {t.leaderboardCta}
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
               <div className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-white">
