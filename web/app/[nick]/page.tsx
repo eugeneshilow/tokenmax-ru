@@ -10,7 +10,6 @@ import { ArrowUpRight, Flame, Gauge, ReceiptText, ShieldAlert, Terminal, Zap } f
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -20,30 +19,23 @@ type TmxNickPageProps = {
 }
 
 const SELF_SERVE_ONELINER = 'npx tokmax'
+const REPO_URL = 'https://github.com/eugeneshilow/tokmax'
+const REPO_DISPLAY = 'github.com/eugeneshilow/tokmax'
 
 export async function generateMetadata({ params }: TmxNickPageProps): Promise<Metadata> {
   const { nick: rawNick } = await params
   const nick = rawNick.toLowerCase()
 
-  // Locale-aware метаданные: русскоязычный браузер → RU, иначе EN (детект по
-  // Accept-Language, НЕ по гео).
-  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
-  const isRu = acceptLang.startsWith('ru')
-
   const profile = await loadTmxProfile(nick)
 
   if (!profile) {
     return {
-      title: isRu ? 'Профиль не найден — tokmax' : 'Profile not found — tokmax',
+      title: 'Profile not found — tokmax',
     }
   }
 
-  const title = isRu
-    ? `${profile.nick} нажёг ${formatUsd(profile.costUsd)} по API-расценкам — tokmax`
-    : `${profile.nick} burned ${formatUsd(profile.costUsd)} at API prices — tokmax`
-  const description = isRu
-    ? `${profile.nick} сжёг ${formatCompactNumber(profile.totalTokens)} токенов Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} по цене API. Период с ${profile.firstDay} по ${profile.lastDay}.`
-    : `${profile.nick} burned ${formatCompactNumber(profile.totalTokens)} tokens across Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} at API prices. ${profile.firstDay} to ${profile.lastDay}.`
+  const title = `${profile.nick} burned ${formatUsd(profile.costUsd)} at API prices — tokmax`
+  const description = `${profile.nick} burned ${formatCompactNumber(profile.totalTokens)} tokens across Codex + Claude Code — ${formatUsdPrecise(profile.costUsd)} at API prices. ${profile.firstDay} to ${profile.lastDay}.`
   const url = `https://tokmax.vibecoding.tech/${profile.nick}`
 
   return {
@@ -77,11 +69,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
 
   if (!profile) notFound()
 
-  // Locale-aware фаннел: русскоязычный браузер → CTA на vibecoding.ru (детект по
-  // Accept-Language, НЕ по гео — VPN не ломает: язык браузера не меняется).
-  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
-  const isRu = acceptLang.startsWith('ru')
-
   const shareUrl = `tokmax.vibecoding.tech/${profile.nick}`
   const peakDay =
     profile.daily.length > 0
@@ -112,84 +99,41 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
 
-  // Bilingual copy: RU для русскоязычных браузеров, EN по умолчанию.
-  const t = isRu
-    ? {
-        heroVerb: 'нажёг',
-        heroApiSuffix: 'по API.',
-        heroPara: `Это ${formatInteger(profile.totalTokens)} токенов Codex и Claude Code за период с ${profile.firstDay} по ${profile.lastDay}. Столько этот объём стоил бы, если платить за usage по цене API, а не по подписке.`,
-        notVerified: 'число не верифицировано',
-        econLabel: 'api ÷ подписка',
-        econSentence: econ
-          ? `Подписка ${formatUsdPrecise(econ.sub)}/мес — за период это ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → отбил подписку в ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, сэкономил +${formatUsdPrecise(econ.profit)}` : ''}.`
-          : '',
-        buildYourOwnCta: 'Собрать свой',
-        asideApiEquivalent: 'api-equivalent',
-        asideApiPrice: `${formatUsdPrecise(profile.costUsd)} по цене API`,
-        asideTokensTotal: 'токенов всего',
-        asideTokensCount: `${formatInteger(profile.totalTokens)} токенов`,
-        rowPeriod: 'период',
-        rowDays: 'дней',
-        rowCli: 'cli',
-        machinesNote: `Машины: ${machines}. Собрано локально, наружу уходят только агрегаты.`,
-        dailyBurnTitle: 'Дневной расход токенов',
-        scoreboardTitle: 'Итого по источникам',
-        buildEyebrow: 'собери свой',
-        counterTitleLine1: 'Свой счётчик —',
-        counterTitleLine2: 'одной командой.',
-        counterPara:
-          'Запусти одну команду в терминале — она прочитает локальные логи Codex и Claude Code, посчитает API-equivalent и опубликует твою страницу. Наружу уходят только агрегаты: ни ключей, ни сырых логов.',
-        howComputed: 'Как это считается',
-        footerEyebrow: `${profile.nick} · с ${profile.firstDay} по ${profile.lastDay}`,
-        footerTitle: `${formatUsd(profile.costUsd)} по API. Скриншоть и кидай в чат.`,
-        statApiEquivalentDetail: 'столько этот объём стоил бы по цене API, а не по подписке',
-        statTotalTokensLabel: 'Итого токенов',
-        statTotalTokensDetail: `${formatInteger(profile.totalTokens)} токенов Codex + Claude Code`,
-        statPeriodLabel: 'Период',
-        statPeriodDetail: `с ${profile.firstDay} по ${profile.lastDay} · ${profile.daily.length} дней`,
-        statPeakLabel: 'Пик дня',
-        statPeakDetail: peakDay ? `${peakDay.date}: самый горячий день` : 'нет дневных данных',
-        attribution: 'Цены: LiteLLM · Подсчёт: ccusage',
-        leaderboardCta: rank ? `🏆 #${rank} в рейтинге` : 'Лидерборд →',
-      }
-    : {
-        heroVerb: 'burned',
-        heroApiSuffix: 'at API prices.',
-        heroPara: `That's ${formatInteger(profile.totalTokens)} tokens across Codex and Claude Code, from ${profile.firstDay} to ${profile.lastDay}. That's what this usage would cost if you paid for it at API prices instead of on a subscription.`,
-        notVerified: 'figure not verified',
-        econLabel: 'api ÷ subscription',
-        econSentence: econ
-          ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
-          : '',
-        buildYourOwnCta: 'Build your own',
-        asideApiEquivalent: 'api-equivalent',
-        asideApiPrice: `${formatUsdPrecise(profile.costUsd)} at API prices`,
-        asideTokensTotal: 'total tokens',
-        asideTokensCount: `${formatInteger(profile.totalTokens)} tokens`,
-        rowPeriod: 'period',
-        rowDays: 'days',
-        rowCli: 'cli',
-        machinesNote: `Machines: ${machines}. Computed locally; only aggregates leave the box.`,
-        dailyBurnTitle: 'Daily token burn',
-        scoreboardTitle: 'Totals by source',
-        buildEyebrow: 'build your own',
-        counterTitleLine1: 'Your own counter —',
-        counterTitleLine2: 'one command.',
-        counterPara:
-          'Run one command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and publishes your page. Only aggregates leave the box: no keys, no raw logs.',
-        howComputed: "How it's computed",
-        footerEyebrow: `${profile.nick} · ${profile.firstDay} to ${profile.lastDay}`,
-        footerTitle: `${formatUsd(profile.costUsd)} at API prices. Screenshot it and drop it in chat.`,
-        statApiEquivalentDetail: 'what this usage would cost at API prices, not on a subscription',
-        statTotalTokensLabel: 'Total tokens',
-        statTotalTokensDetail: `${formatInteger(profile.totalTokens)} tokens across Codex + Claude Code`,
-        statPeriodLabel: 'Period',
-        statPeriodDetail: `${profile.firstDay} to ${profile.lastDay} · ${profile.daily.length} days`,
-        statPeakLabel: 'Peak day',
-        statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
-        attribution: 'Prices: LiteLLM · Counting: ccusage',
-        leaderboardCta: rank ? `🏆 #${rank} on the board` : 'Leaderboard →',
-      }
+  // English-only copy.
+  const t = {
+    notVerified: 'figure not verified',
+    econLabel: 'api ÷ subscription',
+    econSentence: econ
+      ? `Subscription ${formatUsdPrecise(econ.sub)}/mo — over this period that's ≈ ${formatUsdPrecise(econ.subTotal)}. API-equivalent ${formatUsdPrecise(profile.costUsd)} → paid the subscription back ${econ.ratio.toFixed(1)}×${econ.profit >= 0 ? `, saved +${formatUsdPrecise(econ.profit)}` : ''}.`
+      : '',
+    buildYourOwnCta: 'Build your own',
+    asideApiEquivalent: 'api-equivalent',
+    asideApiPrice: `${formatUsdPrecise(profile.costUsd)} at API prices`,
+    asideTokensTotal: 'total tokens',
+    asideTokensCount: `${formatInteger(profile.totalTokens)} tokens`,
+    rowPeriod: 'period',
+    rowDays: 'days',
+    rowCli: 'cli',
+    machinesNote: `Machines: ${machines}. Computed locally; only aggregates leave the box.`,
+    dailyBurnTitle: 'Daily token burn',
+    scoreboardTitle: 'Totals by source',
+    buildEyebrow: 'build your own',
+    counterTitleLine1: 'Your own counter —',
+    counterTitleLine2: 'one command.',
+    counterPara:
+      'Run one command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and publishes your page. Only aggregates leave the box: no keys, no raw logs.',
+    howComputed: "How it's computed",
+    footerEyebrow: `${profile.nick} · ${profile.firstDay} to ${profile.lastDay}`,
+    footerTitle: `${formatUsd(profile.costUsd)} at API prices. Screenshot it and drop it in chat.`,
+    statApiEquivalentDetail: 'what this usage would cost at API prices, not on a subscription',
+    statTotalTokensLabel: 'Total tokens',
+    statTotalTokensDetail: `${formatInteger(profile.totalTokens)} tokens across Codex + Claude Code`,
+    statPeriodLabel: 'Period',
+    statPeriodDetail: `${profile.firstDay} to ${profile.lastDay} · ${profile.daily.length} days`,
+    statPeakLabel: 'Peak day',
+    statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
+    attribution: 'Prices: LiteLLM · Counting: ccusage',
+  }
 
   const statCards = [
     {
@@ -223,23 +167,43 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
       <section className="border-b border-[#242428] bg-[#070707] text-white">
         <div className="mx-auto grid max-w-[1680px] gap-8 px-4 py-8 md:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge>TOKENMAX</Badge>
-              <Badge>API-EQUIVALENT</Badge>
+            {/* Brand mark: the tool · the project — vibecoding.tech must be screenshot-visible. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-[19px] font-black leading-none tracking-tight md:text-[22px]">
+                <span className="text-[#FF7A1A]">tokmax</span>
+                <span className="mx-2 text-[#5A5A5F]">·</span>
+                <span className="text-white">vibecoding.tech</span>
+              </span>
+              <Badge>API-EQUIVALENT BURN</Badge>
               {profile.machineLabels.map((label) => (
                 <Badge key={label}>{label}</Badge>
               ))}
             </div>
 
-            <h1 className="mt-8 max-w-5xl text-balance text-[44px] font-black leading-[0.95] tracking-normal text-white sm:text-[64px] lg:text-[80px]">
-              {profile.nick} {t.heroVerb}
+            {/* Hero stat: nick + the huge orange number. */}
+            <h1 className="mt-6 max-w-5xl text-balance text-[42px] font-black leading-[0.92] tracking-normal text-white sm:text-[60px] lg:text-[78px]">
+              {profile.nick} burned
               <br />
-              <span className="text-[#FF7A1A]">{formatUsd(profile.costUsd)}</span> {t.heroApiSuffix}
+              <span className="text-[#FF7A1A]">{formatUsd(profile.costUsd)}</span> at API prices.
             </h1>
 
-            <p className="mt-7 max-w-3xl text-[17px] leading-7 text-[#D2D2D7] md:text-[20px] md:leading-8">
-              {t.heroPara}
+            {/* Subline: tokens + sources + period. */}
+            <p className="mt-5 max-w-3xl text-[16px] font-semibold leading-7 text-[#D2D2D7] md:text-[19px] md:leading-8">
+              {formatInteger(profile.totalTokens)} tokens across Codex + Claude Code
+              <span className="text-[#6E6E73]"> · </span>
+              {profile.firstDay}–{profile.lastDay}
             </p>
+
+            {/* Rank: the leaderboard brag. */}
+            {rank ? (
+              <Link
+                href="/leaderboard"
+                className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 text-[16px] font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
+              >
+                🏆 #{rank} on the leaderboard
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            ) : null}
 
             {profile.suspicious ? (
               <p className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold text-[#A1A1A6]">
@@ -249,12 +213,12 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             ) : null}
 
             {econ ? (
-              <div className="mt-7 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
+              <div className="mt-6 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
                 <div>
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9EFFBF]">
                     {t.econLabel}
                   </p>
-                  <p className="text-[44px] font-black leading-none text-[#18D86B]">
+                  <p className="text-[40px] font-black leading-none text-[#18D86B]">
                     {econ.ratio.toFixed(1)}×
                   </p>
                 </div>
@@ -264,18 +228,23 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </div>
             ) : null}
 
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-[14px] font-bold">
-              {isRu ? (
-                <Link
-                  href="https://vibecoding.ru"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#FF7A1A] px-4 font-black text-[#070707] transition-colors hover:bg-[#ff8c3a]"
-                >
-                  Научись так же → vibecoding.ru
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              ) : null}
+            {/* Repo + credibility line (muted). */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] font-semibold text-[#6E6E73]">
+              <Link
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#A1A1A6] transition-colors hover:text-white"
+              >
+                {REPO_DISPLAY}
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+              <span className="text-[#5A5A5F]">· open source ·</span>
+              <span>{t.attribution}</span>
+            </div>
+
+            {/* Actions + classy screenshot nudge. */}
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
               <Link
                 href="https://t.me/shilovtech"
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
@@ -289,7 +258,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 href="/leaderboard"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
               >
-                {t.leaderboardCta}
+                Leaderboard
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
               <div className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-white">
@@ -302,6 +271,9 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
                 {t.buildYourOwnCta}
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
+              <span className="inline-flex h-10 items-center rounded-lg border border-white/12 px-4 text-[13px] font-semibold text-[#8A8A8F]">
+                ↓ screenshot this
+              </span>
             </div>
           </div>
 
@@ -453,17 +425,6 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
-                {isRu ? (
-                  <Link
-                    href="https://vibecoding.ru"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#FF7A1A] px-4 font-black text-[#070707] transition-colors hover:bg-[#ff8c3a]"
-                  >
-                    Научись вайбкодить → vibecoding.ru
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                ) : null}
                 <Link
                   href="https://t.me/shilovtech"
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"

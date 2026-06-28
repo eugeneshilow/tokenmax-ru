@@ -4,7 +4,6 @@ import { PromptCopyBox } from '../prompt-copy-box'
 import { ArrowUpRight, Flame, Trophy } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -12,14 +11,9 @@ export const revalidate = 0
 const SELF_SERVE_ONELINER = 'npx tokmax'
 
 export async function generateMetadata(): Promise<Metadata> {
-  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
-  const isRu = acceptLang.startsWith('ru')
-  const title = isRu
-    ? 'Лидерборд tokmax — кто больше всех нажёг по API-ценам'
-    : 'tokmax leaderboard — who burned the most at API prices'
-  const description = isRu
-    ? 'Рейтинг по API-equivalent $: сколько каждый сжёг токенов Codex + Claude Code в деньгах по цене API.'
-    : 'Ranked by API-equivalent $: how much each person burned across Codex + Claude Code at API prices.'
+  const title = 'tokmax leaderboard — who burned the most at API prices'
+  const description =
+    'Ranked by API-equivalent $: how much each person burned across Codex + Claude Code at API prices.'
   return {
     title,
     description,
@@ -30,43 +24,24 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TmxLeaderboardPage() {
-  const acceptLang = (await headers()).get('accept-language')?.toLowerCase() ?? ''
-  const isRu = acceptLang.startsWith('ru')
   const rows = await loadTmxLeaderboard(100)
 
-  const t = isRu
-    ? {
-        eyebrow: 'лидерборд',
-        title: 'Кто больше всех нажёг по API.',
-        sub: 'Рейтинг по API-equivalent $ — сколько твой usage Codex + Claude Code стоил бы по цене API. Запусти и попади в список.',
-        rank: '#',
-        nick: 'ник',
-        api: 'API-equivalent',
-        tokens: 'токенов',
-        machines: 'машины',
-        empty: 'Пока пусто — будь первым.',
-        buildEyebrow: 'собери свой',
-        buildTitle: 'Свой счётчик — одной командой.',
-        buildPara:
-          'Запусти команду в терминале — она прочитает локальные логи Codex и Claude Code, посчитает API-equivalent и поставит тебя в этот рейтинг. Наружу — только агрегаты.',
-        attribution: 'Цены: LiteLLM · Подсчёт: ccusage',
-      }
-    : {
-        eyebrow: 'leaderboard',
-        title: 'Who burned the most at API prices.',
-        sub: 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Run it and land on the board.',
-        rank: '#',
-        nick: 'nick',
-        api: 'API-equivalent',
-        tokens: 'tokens',
-        machines: 'machines',
-        empty: 'Empty so far — be the first.',
-        buildEyebrow: 'build your own',
-        buildTitle: 'Your counter — one command.',
-        buildPara:
-          'Run the command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and puts you on this board. Only aggregates leave your machine.',
-        attribution: 'Prices: LiteLLM · Counting: ccusage',
-      }
+  const t = {
+    eyebrow: 'leaderboard',
+    title: 'Who burned the most at API prices.',
+    sub: 'Ranked by API-equivalent $ — what your Codex + Claude Code usage would cost at API prices. Run it and land on the board.',
+    rank: '#',
+    nick: 'nick',
+    api: 'API-equivalent',
+    tokens: 'tokens',
+    machines: 'machines',
+    empty: 'Empty so far — be the first.',
+    buildEyebrow: 'build your own',
+    buildTitle: 'Your counter — one command.',
+    buildPara:
+      'Run the command in your terminal — it reads your local Codex and Claude Code logs, computes the API-equivalent, and puts you on this board. Only aggregates leave your machine.',
+    attribution: 'Prices: LiteLLM · Counting: ccusage',
+  }
 
   return (
     <div className="bg-[#F5F5F7] text-[#1D1D1F] [font-variant-numeric:tabular-nums]">
