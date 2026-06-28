@@ -143,6 +143,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         statPeriodDetail: `с ${profile.firstDay} по ${profile.lastDay} · ${profile.daily.length} дней`,
         statPeakLabel: 'Пик дня',
         statPeakDetail: peakDay ? `${peakDay.date}: самый горячий день` : 'нет дневных данных',
+        attribution: 'Цены: LiteLLM · Подсчёт: ccusage',
       }
     : {
         heroVerb: 'burned',
@@ -179,6 +180,7 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
         statPeriodDetail: `${profile.firstDay} to ${profile.lastDay} · ${profile.daily.length} days`,
         statPeakLabel: 'Peak day',
         statPeakDetail: peakDay ? `${peakDay.date}: hottest day` : 'no daily data',
+        attribution: 'Prices: LiteLLM · Counting: ccusage',
       }
 
   const statCards = [
@@ -480,6 +482,9 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             <h2 className="mt-2 text-[28px] font-black leading-tight">
               {t.footerTitle}
             </h2>
+            <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-[#6E6E73]">
+              {t.attribution}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[14px] font-black">
             <span className="rounded-lg bg-[#1A1206] px-3 py-2 text-[#FF7A1A]">

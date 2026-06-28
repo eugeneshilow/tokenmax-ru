@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { scanClaudeCode } from '../src/adapters/claude-code.mjs';
 import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
-import { fetchPricing, previewCost } from '../src/pricing.mjs';
+import { aggregateSources, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
 import { loadSecret, saveSecret } from '../src/secrets.mjs';
 
@@ -346,15 +346,11 @@ async function main() {
     return 1;
   }
 
-  let pricing;
-  try {
-    pricing = await fetchPricing(opts.api);
-  } catch (err) {
-    console.error(`Не удалось получить прайсинг: ${err.message}`);
-    return 1;
-  }
-
-  const usd = previewCost(pricing, agg.models);
+  // Prices come from the bundled LiteLLM snapshot + our override map; the CLI
+  // computes $ locally (offline) and CARRIES it in the publish payload.
+  const rateMap = await buildRateMap();
+  const { sources: costSources, totals } = aggregateSources(agg.models, rateMap);
+  const usd = totals.costUsd;
 
   console.log(
     `Период: ${agg.firstDay} → ${agg.lastDay}` +
@@ -367,6 +363,7 @@ async function main() {
   }
   console.log(`Всего токенов: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
+  console.log(ATTRIBUTION);
 
   // Subscription comparison (CLI-side preview of the flex).
   if (opts.subscriptionUsd && agg.firstDay && agg.lastDay) {
@@ -388,11 +385,14 @@ async function main() {
   const body = {
     nick,
     cliVersion,
-    pricingVersion: pricing.version,
+    // LiteLLM snapshot date — the rate vintage this $ was computed against.
+    pricingVersion: rateMap.version,
     firstDay: agg.firstDay,
     lastDay: agg.lastDay,
     machineLabel: opts.machine,
-    models: agg.models,
+    models: agg.models, // token-only buckets
+    sources: costSources, // per-source aggregates, each carrying costUsd
+    totals, // grand totals, carrying costUsd
     daily: agg.daily,
     ...(opts.subscriptionUsd ? { subscriptionUsd: opts.subscriptionUsd } : {}),
   };

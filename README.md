@@ -4,6 +4,8 @@
 локальных AI-coding агентов (Codex, Claude Code). Изолированный продукт линейки
 **vibecoding.ru**.
 
+Цены: LiteLLM · Подсчёт: ccusage.
+
 - `cli/` — open-source CLI `tokmax` (`npx tokmax <ник>`):
   читает локальные JSONL-логи, считает агрегаты, публикует. Наружу — только числа,
   никогда не сырые логи или ключи.

@@ -9,8 +9,8 @@ import { tmxDailyFields, tmxModelUsageFields, tmxSourceFields, tmxTotalsFields }
 export default defineSchema({
   // Сырьё публикаций ника: каждая публикация = иммутабельный атом (write-once).
   // ipHash — солёный хеш, не сырой IP (152-ФЗ: не-ПД), только для эфемерного
-  // rate-limit. costUsd считает сервер из присланных токенов по
-  // convex/lib/tmx_pricing, а не доверяет числу клиента.
+  // rate-limit. costUsd приходит от клиента (CLI: LiteLLM + наша формула);
+  // сервер только хранит/показывает; верификация — отдельный отложенный gate.
   data_raw_tmx_submissions: defineTable({
     nick: v.string(),
     ipHash: v.string(),
@@ -23,8 +23,8 @@ export default defineSchema({
     sources: v.array(v.object(tmxSourceFields)),
     daily: v.array(v.object(tmxDailyFields)),
     totals: v.object(tmxTotalsFields),
+    costUsd: v.number(),
     suspicious: v.boolean(),
-    hasUnknownModels: v.boolean(),
     subscriptionUsd: v.optional(v.number()),
     insertedAt: v.number(),
   })

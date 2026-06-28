@@ -6,7 +6,6 @@
 // приходят уже готовые хеши — этот модуль детерминирован.
 
 import { v } from 'convex/values'
-import { TMX_FALLBACK_RATE, costUsdForUsage, resolveModelRate, type TmxTool } from './tmx_pricing'
 
 // ---------------------------------------------------------------------------
 // Поля-валидаторы (schema + table-модули импортируют отсюда)
@@ -23,7 +22,7 @@ export const tmxModelUsageFields = {
   reasoning: v.number(),
 }
 
-/** Агрегат по инструменту (Codex / Claude Code) — серверный расчёт $. */
+/** Агрегат по инструменту (Codex / Claude Code) — $ считает клиент (CLI). */
 export const tmxSourceFields = {
   source: v.string(),
   input: v.number(),
@@ -72,6 +71,11 @@ export const vTmxPublishArgs = {
   lastDay: v.string(),
   machineLabel: v.string(),
   models: v.array(vTmxModelUsageInput),
+  // $ приходит от клиента (CLI: LiteLLM + наша формула). costUsd уже включён в
+  // tmxSourceFields/tmxTotalsFields — просто продвинут из server-derived в
+  // client-sent. Сервер их только хранит, не пересчитывает.
+  sources: v.array(v.object(tmxSourceFields)),
+  totals: v.object(tmxTotalsFields),
   daily: v.array(vTmxDailyInput),
   ipHash: v.string(),
   providedSecretHash: v.union(v.string(), v.null()),
@@ -281,18 +285,8 @@ export const TMX_RATE_LIMIT_MAX = 8
 export const TMX_IP_DAILY_CAP = 12
 
 // ---------------------------------------------------------------------------
-// Агрегация моделей → источники + тоталы (серверный авторитетный расчёт $)
+// Источники + тоталы: $ приходит от клиента, сервер только хранит/показывает
 // ---------------------------------------------------------------------------
-
-export type TmxModelUsageInput = {
-  model: string
-  tool: string
-  input: number
-  output: number
-  cacheCreate: number
-  cacheRead: number
-  reasoning: number
-}
 
 export type TmxSource = {
   source: string
@@ -317,100 +311,6 @@ export type TmxTotals = {
 
 export type TmxDailyInput = { date: string; codexTokens: number; claudeTokens: number }
 export type TmxDaily = TmxDailyInput & { totalTokens: number }
-
-const SOURCE_LABELS: Record<TmxTool, string> = {
-  codex: 'Codex',
-  'claude-code': 'Claude Code',
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-function emptyTotals(): TmxTotals {
-  return {
-    input: 0,
-    output: 0,
-    cacheCreate: 0,
-    cacheRead: 0,
-    reasoning: 0,
-    totalTokens: 0,
-    costUsd: 0,
-  }
-}
-
-/**
- * Группирует per-model usage в источники (Codex / Claude Code) и считает
- * API-equivalent $ по каноничному pricing. Незнакомая модель → fallback-ставка
- * + флаг hasUnknownModels.
- */
-export function aggregateModels(models: TmxModelUsageInput[]): {
-  sources: TmxSource[]
-  totals: TmxTotals
-  hasUnknownModels: boolean
-} {
-  const byLabel = new Map<string, TmxSource>()
-  let hasUnknownModels = false
-
-  for (const m of models) {
-    const rate = resolveModelRate(m.model)
-    if (!rate) hasUnknownModels = true
-    const perMillion = rate?.perMillion ?? TMX_FALLBACK_RATE
-    const tool: TmxTool | 'other' =
-      rate?.tool ?? (m.tool === 'codex' || m.tool === 'claude-code' ? m.tool : 'other')
-    const label = tool === 'other' ? 'Other' : SOURCE_LABELS[tool]
-
-    const usage = {
-      input: Math.max(0, m.input),
-      output: Math.max(0, m.output),
-      cacheCreate: Math.max(0, m.cacheCreate),
-      cacheRead: Math.max(0, m.cacheRead),
-      reasoning: Math.max(0, m.reasoning),
-    }
-    const costUsd = costUsdForUsage(perMillion, usage)
-    const tokens =
-      usage.input + usage.output + usage.cacheCreate + usage.cacheRead + usage.reasoning
-
-    const cur =
-      byLabel.get(label) ??
-      ({
-        source: label,
-        input: 0,
-        output: 0,
-        cacheCreate: 0,
-        cacheRead: 0,
-        reasoning: 0,
-        totalTokens: 0,
-        costUsd: 0,
-      } satisfies TmxSource)
-
-    cur.input += usage.input
-    cur.output += usage.output
-    cur.cacheCreate += usage.cacheCreate
-    cur.cacheRead += usage.cacheRead
-    cur.reasoning += usage.reasoning
-    cur.totalTokens += tokens
-    cur.costUsd += costUsd
-    byLabel.set(label, cur)
-  }
-
-  const sources = Array.from(byLabel.values()).sort((a, b) => a.source.localeCompare(b.source))
-  const totals = sources.reduce<TmxTotals>((t, s) => {
-    t.input += s.input
-    t.output += s.output
-    t.cacheCreate += s.cacheCreate
-    t.cacheRead += s.cacheRead
-    t.reasoning += s.reasoning
-    t.totalTokens += s.totalTokens
-    t.costUsd += s.costUsd
-    return t
-  }, emptyTotals())
-
-  for (const s of sources) s.costUsd = round2(s.costUsd)
-  totals.costUsd = round2(totals.costUsd)
-
-  return { sources, totals, hasUnknownModels }
-}
 
 /** Дополняет дневные столбики суммарными токенами и сортирует по дате. */
 export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {

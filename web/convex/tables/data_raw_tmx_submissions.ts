@@ -7,7 +7,6 @@ import {
   TMX_RATE_LIMIT_WINDOW_MS,
   TMX_VALUE_CAP_USD,
   TMX_VALUE_HARD_CAP_USD,
-  aggregateModels,
   buildDaily,
   validateNick,
   vTmxPublishArgs,
@@ -19,9 +18,11 @@ const NICK_MAX = 30
 
 /**
  * Единая транзакция приёма публикации (зовётся из http.ts после крипто-хешей):
- * валидация ника → серверный расчёт $ → анти-абьюз гейты → capability-token →
- * иммутабельный append → проекция снапшота. Всё детерминировано; крипто
- * (хеши IP/секрета, генерация секрета) сделано выше, в httpAction.
+ * валидация ника → сервер — тупой стор: валидирует и сохраняет присланный
+ * клиентом $ (CLI: LiteLLM + наша формула), сам ничего не пересчитывает →
+ * анти-абьюз гейты → capability-token → иммутабельный append → проекция
+ * снапшота. Всё детерминировано; крипто (хеши IP/секрета, генерация секрета)
+ * сделано выше, в httpAction.
  */
 export const publish = internalMutation({
   args: vTmxPublishArgs,
@@ -34,8 +35,10 @@ export const publish = internalMutation({
     }
     const nick = nickCheck.nick
 
-    // 2. Серверный авторитетный расчёт $ из присланных токенов.
-    const { sources, totals, hasUnknownModels } = aggregateModels(args.models)
+    // 2. $ — авторитетно от клиента (CLI считает по LiteLLM + наша формула).
+    // Сервер только хранит. sources/totals приходят готовыми (incl. costUsd).
+    const sources = args.sources
+    const totals = args.totals
     if (totals.totalTokens <= 0) {
       return {
         ok: false as const,
@@ -186,8 +189,8 @@ export const publish = internalMutation({
       sources,
       daily,
       totals,
+      costUsd: totals.costUsd,
       suspicious,
-      hasUnknownModels,
       subscriptionUsd: args.subscriptionUsd,
       insertedAt: now,
     })

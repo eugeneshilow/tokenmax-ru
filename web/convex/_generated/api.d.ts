@@ -11,7 +11,6 @@
 import type * as admin_tmx from "../admin_tmx.js";
 import type * as http from "../http.js";
 import type * as lib_tmx from "../lib/tmx.js";
-import type * as lib_tmx_pricing from "../lib/tmx_pricing.js";
 import type * as tables_data_cooked_tmx_profiles from "../tables/data_cooked_tmx_profiles.js";
 import type * as tables_data_raw_tmx_submissions from "../tables/data_raw_tmx_submissions.js";
 
@@ -25,7 +24,6 @@ declare const fullApi: ApiFromModules<{
   admin_tmx: typeof admin_tmx;
   http: typeof http;
   "lib/tmx": typeof lib_tmx;
-  "lib/tmx_pricing": typeof lib_tmx_pricing;
   "tables/data_cooked_tmx_profiles": typeof tables_data_cooked_tmx_profiles;
   "tables/data_raw_tmx_submissions": typeof tables_data_raw_tmx_submissions;
 }>;

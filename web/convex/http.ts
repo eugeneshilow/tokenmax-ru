@@ -1,6 +1,6 @@
 import { httpRouter, makeFunctionReference } from 'convex/server'
 import { httpAction } from './_generated/server'
-import { buildPricingFactPack } from './lib/tmx_pricing'
+import { TMX_VALUE_HARD_CAP_USD } from './lib/tmx'
 
 // ===========================================================================
 // tokenmax self-serve platform (L2) — публичный self-serve приём (ISOLATED).
@@ -28,6 +28,25 @@ type TmxPublishArgs = {
     cacheRead: number
     reasoning: number
   }>
+  sources: Array<{
+    source: string
+    input: number
+    output: number
+    cacheCreate: number
+    cacheRead: number
+    reasoning: number
+    totalTokens: number
+    costUsd: number
+  }>
+  totals: {
+    input: number
+    output: number
+    cacheCreate: number
+    cacheRead: number
+    reasoning: number
+    totalTokens: number
+    costUsd: number
+  }
   daily: Array<{ date: string; codexTokens: number; claudeTokens: number }>
   ipHash: string
   providedSecretHash: string | null
@@ -69,6 +88,15 @@ function tmxInt(value: unknown): number {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0
 }
 
+// $ — дробное: tmxInt floor'ит и обнулил бы центы. Отдельный float-коэрсер:
+// non-negative, finite, round до центов, clamp по жёсткому value-cap.
+function tmxFloat(value: unknown): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 0
+  const rounded = Math.round(n * 100) / 100
+  return Math.min(Math.max(0, rounded), TMX_VALUE_HARD_CAP_USD)
+}
+
 // HARDENING #5: payload caps. Понижены до 40 моделей / 120 дневных строк
 // (раньше 500/400) — bounds размер одной публикации (память мутации, storage).
 const TMX_MAX_MODELS = 40
@@ -102,6 +130,37 @@ function tmxCoerceDaily(raw: unknown): TmxPublishArgs['daily'] {
     .filter((d) => d.date.length > 0)
 }
 
+// Источники приходят от клиента (CLI считает $). Токены — int, costUsd — float.
+function tmxCoerceSources(raw: unknown): TmxPublishArgs['sources'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .slice(0, TMX_MAX_MODELS)
+    .map((s) => ({
+      source: typeof s?.source === 'string' ? s.source.slice(0, 40) : '',
+      input: tmxInt(s?.input),
+      output: tmxInt(s?.output),
+      cacheCreate: tmxInt(s?.cacheCreate),
+      cacheRead: tmxInt(s?.cacheRead),
+      reasoning: tmxInt(s?.reasoning),
+      totalTokens: tmxInt(s?.totalTokens),
+      costUsd: tmxFloat(s?.costUsd),
+    }))
+    .filter((s) => s.source.length > 0)
+}
+
+function tmxCoerceTotals(raw: unknown): TmxPublishArgs['totals'] {
+  const t = (raw ?? {}) as Record<string, unknown>
+  return {
+    input: tmxInt(t.input),
+    output: tmxInt(t.output),
+    cacheCreate: tmxInt(t.cacheCreate),
+    cacheRead: tmxInt(t.cacheRead),
+    reasoning: tmxInt(t.reasoning),
+    totalTokens: tmxInt(t.totalTokens),
+    costUsd: tmxFloat(t.costUsd),
+  }
+}
+
 function tmxJson(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -132,6 +191,19 @@ http.route({
 
     if (!body || typeof body.nick !== 'string' || !Array.isArray(body.models)) {
       return tmxJson({ ok: false, reason: 'invalid_payload' }, 400)
+    }
+
+    // HARD-CUT pre-0.7 clients: since 0.7 the CLI computes $ and CARRIES it
+    // (sources[] + totals.costUsd). The server is a dumb store — no recompute
+    // fallback. A payload без totals/sources не может дать честный $, поэтому
+    // отклоняем, а не пишем строку с costUsd=0 (которая отравила бы leaderboard).
+    const totalsObj =
+      body.totals && typeof body.totals === 'object' ? (body.totals as Record<string, unknown>) : null
+    if (!Array.isArray(body.sources) || !totalsObj || !Number.isFinite(Number(totalsObj.costUsd))) {
+      return tmxJson(
+        { ok: false, reason: 'invalid_payload', message: 'Update: npx tokmax@latest' },
+        400
+      )
     }
 
     const forwarded = request.headers.get('x-forwarded-for') ?? ''
@@ -175,6 +247,8 @@ http.route({
           ? body.machineLabel.slice(0, 60)
           : 'this machine',
       models: tmxCoerceModels(body.models),
+      sources: tmxCoerceSources(body.sources),
+      totals: tmxCoerceTotals(body.totals),
       daily: tmxCoerceDaily(body.daily),
       ipHash,
       providedSecretHash,
@@ -228,36 +302,6 @@ http.route({
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    })
-  }),
-})
-
-http.route({
-  path: '/api/tmx/pricing',
-  method: 'GET',
-  handler: httpAction(async () => {
-    return new Response(JSON.stringify(buildPricingFactPack()), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
-  }),
-})
-
-http.route({
-  path: '/api/tmx/pricing',
-  method: 'OPTIONS',
-  handler: httpAction(async () => {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     })
