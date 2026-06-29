@@ -4,7 +4,7 @@
 
 import os from 'node:os';
 import path from 'node:path';
-import { mkdir, readFile, writeFile, chmod, rm } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, chmod, rm, readdir, rmdir } from 'node:fs/promises';
 
 function configDir() {
   return path.join(os.homedir(), '.config', 'tokenmax');
@@ -72,6 +72,31 @@ export async function saveAuth(data) {
   return file;
 }
 
+// Small persisted preferences (e.g. the chosen start day `since`) so re-runs and the
+// daily job keep the user's curation. Lives at ~/.config/tokenmax/prefs.json (0600).
+function prefsFile() {
+  return path.join(configDir(), 'prefs.json');
+}
+
+/** Load prefs ({ since?: 'YYYY-MM-DD' }), or {} if none. */
+export async function loadPrefs() {
+  try {
+    return JSON.parse(await readFile(prefsFile(), 'utf8')) || {};
+  } catch {
+    return {};
+  }
+}
+
+/** Merge-save prefs. Pass { since: null } to clear `since`. */
+export async function savePrefs(patch) {
+  const cur = await loadPrefs();
+  const next = { ...cur, ...patch };
+  for (const k of Object.keys(next)) if (next[k] == null) delete next[k];
+  await mkdir(configDir(), { recursive: true, mode: 0o700 });
+  await writeFile(prefsFile(), JSON.stringify(next), { mode: 0o600 });
+  return next;
+}
+
 /** Delete auth.json. Returns true if a file was removed. */
 export async function deleteAuth() {
   try {
@@ -80,4 +105,38 @@ export async function deleteAuth() {
   } catch {
     return false;
   }
+}
+
+/**
+ * Wipe ALL local tokmax files: the X auth.json + every per-nick capability secret
+ * (*.json) + the daily-job log. We touch ONLY tokmax's own files (anything that is
+ * not *.json or daily.log is left alone — the config dir may be shared). The
+ * directory is removed too if it ends up empty. Returns the list of removed names.
+ */
+export async function wipeLocal() {
+  const dir = configDir();
+  const removed = [];
+  let names = [];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return removed; // no dir → nothing local
+  }
+  for (const name of names) {
+    if (name.endsWith('.json') || name === 'daily.log') {
+      try {
+        await rm(path.join(dir, name), { force: true });
+        removed.push(name);
+      } catch {
+        // ignore
+      }
+    }
+  }
+  // Remove the dir only if it is now empty (clean slate for normal installs).
+  try {
+    await rmdir(dir);
+  } catch {
+    // not empty (e.g. unrelated logs share the dir) or already gone → leave it
+  }
+  return removed;
 }

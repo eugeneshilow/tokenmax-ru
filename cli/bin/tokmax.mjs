@@ -27,7 +27,15 @@ import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
 import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
-import { loadSecret, saveSecret, loadAuth, deleteAuth } from '../src/secrets.mjs';
+import {
+  loadSecret,
+  saveSecret,
+  loadAuth,
+  deleteAuth,
+  wipeLocal,
+  loadPrefs,
+  savePrefs,
+} from '../src/secrets.mjs';
 import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
 import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
@@ -206,6 +214,21 @@ function promptLine(question) {
       resolve((answer || '').trim());
     });
   });
+}
+
+// "auto" start day: the beginning of the window that holds ~85% of total tokens —
+// trims a thin, slow early tail (the "slacking" stretch) while keeping the real run.
+// daily entries are sorted ascending and have totalTokens.
+function autoSince(daily) {
+  if (!Array.isArray(daily) || daily.length < 8) return null;
+  const total = daily.reduce((s, d) => s + (d.totalTokens || 0), 0);
+  if (total <= 0) return null;
+  let acc = 0;
+  for (let i = daily.length - 1; i >= 0; i--) {
+    acc += daily[i].totalTokens || 0;
+    if (acc >= total * 0.85) return daily[i].date;
+  }
+  return daily[0].date;
 }
 
 function validateNick(raw) {
@@ -482,11 +505,15 @@ async function deleteCmd(rawArgs, apiBase) {
     console.error(`  Could not delete (HTTP ${httpStatus}). Your page was NOT removed.`);
     return 1;
   }
-  // Server data is gone — now clean THIS machine: remove the daily job + local token.
+  // Server data is gone — now wipe EVERY local trace of tokmax from this machine:
+  // the daily job (launchd/cron) + auth.json + all capability secrets + the daily log.
   await removeDaily().catch(() => {});
-  await deleteAuth().catch(() => {});
-  console.log(`\n  ✓ Deleted. ${who} is gone, your account removed, and this machine signed out.`);
-  console.log('  The daily auto-update on this machine (if any) was removed too.\n');
+  const wiped = await wipeLocal().catch(() => []);
+  console.log('\n  ✓ Deleted — no trace left.');
+  console.log(`    • server: ${who} page + account + every login removed`);
+  console.log('    • this machine: daily auto-update removed');
+  console.log(`    • this machine: local files wiped${wiped.length ? ` (${wiped.join(', ')})` : ''}`);
+  console.log('  Nothing tokmax stored remains. Run `npx tokmax` anytime to start fresh.\n');
   return 0;
 }
 
@@ -539,6 +566,19 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   console.log(`tokmax v${cliVersion} · open source: ${REPO_DISPLAY}`);
   console.log(`nick: ${nick}${opts.bearer ? ' (via X)' : ''}`);
 
+  // Start-day curation persists so a chosen trim sticks across re-runs + the (non-interactive)
+  // daily job. `--since all` resets to full history; a flag date is applied + persisted;
+  // otherwise fall back to the saved pref.
+  if (opts.since === 'all') {
+    opts.since = null;
+    await savePrefs({ since: null });
+  } else if (!opts.since) {
+    const prefs = await loadPrefs();
+    if (prefs.since) opts.since = prefs.since;
+  } else if (!opts.dryRun) {
+    await savePrefs({ since: opts.since });
+  }
+
   // Step counter — total adapts to the scenario (dry-run skips the publish step).
   // The tag is captured once per step so it shows on BOTH the running spinner and
   // the final ✓ line (a fast run would otherwise hide the number).
@@ -577,6 +617,37 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     )
     .join(' · ');
   scanP.succeed(`${scanTag} Scanned local logs — ${scanSummary}`);
+
+  // Start-day offer: let the user hide a slow early stretch (curation they WANT — not the
+  // tedious kind). Interactive only, only when no start day is set yet. The chosen day is
+  // PUBLISHED-from + persisted, so the trim sticks across re-runs + daily, and viewers
+  // can't expand to the hidden part (it's simply never published).
+  if (interactive && !opts.yes && !opts.since) {
+    const aggAll = aggregate(scanned, {});
+    const span = aggAll.daily || [];
+    if (span.length > 7) {
+      console.log(`\n📅 Your logs span ${aggAll.firstDay} → ${aggAll.lastDay}.`);
+      console.log("   Start your page from? (hides slow early days — they won't be published)");
+      console.log('   [Enter] all  ·  [a] auto (smart)  ·  [1] last 30d  ·  [2] last 90d  ·  [d] a date');
+      const pick = (await promptLine('   choice: ')).toLowerCase();
+      const lastMs = Date.parse(aggAll.lastDay);
+      if (pick === 'a') {
+        opts.since = autoSince(span);
+        if (opts.since) console.log(`   → auto: from ${opts.since} (where your activity ramped up)`);
+      } else if (pick === '1') {
+        opts.since = new Date(lastMs - 29 * 86400000).toISOString().slice(0, 10);
+      } else if (pick === '2') {
+        opts.since = new Date(lastMs - 89 * 86400000).toISOString().slice(0, 10);
+      } else if (pick === 'd') {
+        const d = await promptLine('   from date (YYYY-MM-DD): ');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) opts.since = d;
+      }
+      if (opts.since) {
+        await savePrefs({ since: opts.since });
+        console.log(`   ✓ Page starts from ${opts.since} (saved — re-runs + daily keep it).`);
+      }
+    }
+  }
 
   // 2. Aggregate + compute the API-equivalent $ (with progress).
   const computeTag = stepTag();
