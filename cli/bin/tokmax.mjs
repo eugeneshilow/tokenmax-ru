@@ -627,17 +627,17 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     }
   }
 
-  // PROFIT/× shown for THIS MONTH only (the period where the plan is reliably known);
-  // matches the page. One month of burn vs one month of the plan price — no purchase
-  // date needed, no guessing the historical plan.
+  // PROFIT/× = ROLLING LAST 30 DAYS vs one month of the plan (matches the page). Stable
+  // (no calendar month-start dip), apples-to-apples; no purchase date / historical guessing.
   if (opts.subscriptionUsd && daily.length) {
-    const month = daily[daily.length - 1].date.slice(0, 7);
-    const monthBurn = daily
-      .filter((d) => d.date.startsWith(month))
+    const lastDate = daily[daily.length - 1].date;
+    const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10);
+    const windowBurn = daily
+      .filter((d) => d.date >= windowStart)
       .reduce((s, d) => s + (d.costUsd || 0), 0);
-    const ratio = opts.subscriptionUsd > 0 ? monthBurn / opts.subscriptionUsd : 0;
+    const ratio = opts.subscriptionUsd > 0 ? windowBurn / opts.subscriptionUsd : 0;
     console.log(
-      `This month (${month}): $${fmtUsd(monthBurn)} of API value on your $${fmtUsd(opts.subscriptionUsd)}/mo plan → ${ratio.toFixed(1)}× (profit $${fmtUsd(monthBurn - opts.subscriptionUsd)})`,
+      `Last 30 days: $${fmtUsd(windowBurn)} of API value on your $${fmtUsd(opts.subscriptionUsd)}/mo plan → ${ratio.toFixed(1)}× (profit $${fmtUsd(windowBurn - opts.subscriptionUsd)})`,
     );
   }
 

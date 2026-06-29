@@ -136,20 +136,22 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
       : null
   const maxDailyCost = viewDaily.reduce((m, d) => Math.max(m, d.costUsd ?? 0), 0)
 
-  // PROFIT/× = THIS MONTH only. It's the one period where the plan is reliably known
-  // (historical plan changes aren't recorded anywhere — an all-time savings figure would
-  // be a guess). So we compare ONE month of burn to ONE month of the current plan price;
-  // no subscription-purchase date is needed. Resets monthly = recurring flex.
+  // PROFIT/× = ROLLING LAST 30 DAYS of recorded activity vs ONE month of the current
+  // plan (~30 days) — apples-to-apples and STABLE (calendar months tank the ratio in the
+  // first days of a month, killing the flex). Window is anchored to the latest data day,
+  // so it's "your most recent 30 days of coding". We only need the current plan price, no
+  // purchase date / historical-plan guessing.
   const econ = (() => {
     if (!profile.subscriptionUsd || profile.subscriptionUsd <= 0 || profile.daily.length === 0)
       return null
-    const month = profile.daily[profile.daily.length - 1].date.slice(0, 7) // latest YYYY-MM
-    const monthBurn = profile.daily
-      .filter((d) => d.date.startsWith(month))
+    const lastDate = profile.daily[profile.daily.length - 1].date
+    const windowStart = new Date(Date.parse(lastDate) - 29 * 86400000).toISOString().slice(0, 10)
+    const windowBurn = profile.daily
+      .filter((d) => d.date >= windowStart)
       .reduce((s, d) => s + (d.costUsd ?? 0), 0)
     const sub = profile.subscriptionUsd
-    const ratio = sub > 0 ? monthBurn / sub : 0
-    return { month, monthBurn, sub, ratio, profit: monthBurn - sub }
+    const ratio = sub > 0 ? windowBurn / sub : 0
+    return { windowBurn, sub, ratio, profit: windowBurn - sub }
   })()
 
   // Ранг в лидерборде (фидбек @nikmcfly: «без лидерборда я как лох со ссылкой»).
@@ -357,12 +359,12 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               econ.profit >= 0 ? (
                 <div className="mt-6 max-w-2xl overflow-hidden rounded-2xl border-2 border-[#18D86B]/60 bg-gradient-to-br from-[#0B2417] to-[#06160D] px-6 py-5 shadow-[0_0_44px_-8px_rgba(24,216,107,0.55)]">
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#9EFFBF]">
-                    🤑 {periodLabel(econ.month)} · you beat your subscription
+                    🤑 last 30 days · you beat your subscription
                   </p>
                   <div className="mt-2 flex flex-wrap items-end gap-x-10 gap-y-3">
                     <div>
                       <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
-                        profit this month
+                        profit · last 30d
                       </p>
                       <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
                         +{formatUsd(econ.profit)}
@@ -378,21 +380,21 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
                     </div>
                   </div>
                   <p className="mt-3 text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                    {formatUsdPrecise(econ.monthBurn)} of API value this month on your{' '}
+                    {formatUsdPrecise(econ.windowBurn)} of API value in the last 30 days on your{' '}
                     {formatUsdPrecise(econ.sub)}/mo plan. You&apos;re up {econ.ratio.toFixed(1)}× 🔥
                   </p>
                 </div>
               ) : (
                 <div className="mt-6 max-w-2xl rounded-2xl border border-[#FF7A1A]/45 bg-[#FF7A1A]/10 px-6 py-5">
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#FFB877]">
-                    🔥 {periodLabel(econ.month)} · room to burn
+                    🔥 last 30 days · room to burn
                   </p>
                   <p className="mt-2 text-[30px] font-black leading-none text-[#FF7A1A] sm:text-[36px]">
-                    {formatUsd(econ.monthBurn)} of {formatUsd(econ.sub)}
+                    {formatUsd(econ.windowBurn)} of {formatUsd(econ.sub)}
                   </p>
                   <p className="mt-2 text-[14px] font-semibold leading-6 text-[#F2C9A8]">
-                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× this
-                    month. Keep going.
+                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× over
+                    the last 30 days. Keep going.
                   </p>
                 </div>
               )
