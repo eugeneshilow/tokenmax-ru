@@ -165,20 +165,30 @@ async function writeProfileFromRows(
   }, emptyTotals())
   totals.costUsd = round2(totals.costUsd)
 
-  // Дни складываем по дате поверх машин.
+  // Дни складываем по дате поверх машин (токены + per-day $ для period-ранков).
   const dailyMap = new Map<string, TmxDaily>()
   for (const machine of latest) {
     for (const d of machine.daily) {
       const cur =
         dailyMap.get(d.date) ??
-        ({ date: d.date, codexTokens: 0, claudeTokens: 0, totalTokens: 0 } satisfies TmxDaily)
+        ({
+          date: d.date,
+          codexTokens: 0,
+          claudeTokens: 0,
+          totalTokens: 0,
+          costUsd: 0,
+        } satisfies TmxDaily)
       cur.codexTokens += d.codexTokens
       cur.claudeTokens += d.claudeTokens
       cur.totalTokens += d.totalTokens
+      // Back-compat: старая публикация без per-day $ → день стоит $0.
+      cur.costUsd += d.costUsd ?? 0
       dailyMap.set(d.date, cur)
     }
   }
-  const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+  const daily = Array.from(dailyMap.values())
+    .map((d) => ({ ...d, costUsd: round2(d.costUsd) }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   const machineLabels = latest.map((m) => m.machineLabel).sort((a, b) => a.localeCompare(b))
   const firstDay = latest.reduce(
@@ -294,5 +304,103 @@ export const listLeaderboard = query({
         machineLabels: row.machineLabels,
         updatedAt: row.updatedAt,
       }))
+  },
+})
+
+// ---------------------------------------------------------------------------
+// Month/year leaderboards: ранжируем сумму per-day costUsd за календарный период
+// ---------------------------------------------------------------------------
+
+// Period-ряд = форма listLeaderboard + явное period-поле. costUsd здесь —
+// СТОИМОСТЬ ЗА ПЕРИОД (ranking value), не all-time; totalTokens — токены за тот
+// же период; periodCostUsd дублирует costUsd явным именем для UI.
+const vTmxPeriodLeaderboardRow = v.object({
+  nick: v.string(),
+  costUsd: v.number(),
+  totalTokens: v.number(),
+  lastDay: v.string(),
+  machineLabels: v.array(v.string()),
+  updatedAt: v.number(),
+  periodCostUsd: v.number(),
+})
+
+// Bounded scan: читаем верх профилей по all-time $ через by_cost_usd (desc), и
+// уже в памяти пересчитываем стоимость за период из daily[]. Полностью точного
+// per-period индекса нет (period — произвольный месяц/год), поэтому ограничиваем
+// чтение жёстким потолком вместо неогр. скана всей таблицы. Датасет мал; кап
+// щедрый. Если профилей станет много, эволюция — отдельная period-агрегатная
+// таблица (проектор пишет per-period суммы).
+const TMX_PERIOD_SCAN_CAP = 1000
+
+/** "all" | "YYYY" (год) | "YYYY-MM" (месяц). Невалидное → "all". */
+function normalizePeriod(raw: string): string {
+  if (raw === 'all') return 'all'
+  if (/^\d{4}$/.test(raw)) return raw
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw
+  return 'all'
+}
+
+/** Дата YYYY-MM-DD попадает в период? (год = первые 4, месяц = первые 7). */
+function dateInPeriod(date: string, period: string): boolean {
+  if (period === 'all') return true
+  if (period.length === 4) return date.slice(0, 4) === period
+  return date.slice(0, 7) === period
+}
+
+/**
+ * Leaderboard за календарный период (месяц/год/all-time). Ранжирует по сумме
+ * per-day costUsd, чьи даты попадают в период; suspicious исключены. "all"
+ * берёт all-time costUsd/totalTokens профиля напрямую (back-compat: профили без
+ * per-day $ всё равно ранжируются). Чтение ограничено TMX_PERIOD_SCAN_CAP.
+ */
+export const listLeaderboardByPeriod = query({
+  args: { period: v.string(), limit: v.optional(v.number()) },
+  returns: v.array(vTmxPeriodLeaderboardRow),
+  handler: async (ctx, args) => {
+    const period = normalizePeriod(args.period)
+    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200)
+
+    const rows = await ctx.db
+      .query('data_cooked_tmx_profiles')
+      .withIndex('by_cost_usd')
+      .order('desc')
+      .take(TMX_PERIOD_SCAN_CAP)
+
+    const ranked = rows
+      .filter((row) => !row.suspicious)
+      .map((row) => {
+        if (period === 'all') {
+          return {
+            nick: row.nick,
+            costUsd: row.costUsd,
+            totalTokens: row.totalTokens,
+            lastDay: row.lastDay,
+            machineLabels: row.machineLabels,
+            updatedAt: row.updatedAt,
+            periodCostUsd: row.costUsd,
+          }
+        }
+        let costUsd = 0
+        let totalTokens = 0
+        for (const d of row.daily) {
+          if (!dateInPeriod(d.date, period)) continue
+          costUsd += d.costUsd ?? 0
+          totalTokens += d.totalTokens
+        }
+        return {
+          nick: row.nick,
+          costUsd: round2(costUsd),
+          totalTokens,
+          lastDay: row.lastDay,
+          machineLabels: row.machineLabels,
+          updatedAt: row.updatedAt,
+          periodCostUsd: round2(costUsd),
+        }
+      })
+      // Профили без активности в периоде (costUsd == 0) выпадают из ранга.
+      .filter((row) => period === 'all' || row.costUsd > 0)
+      .sort((a, b) => b.costUsd - a.costUsd)
+
+    return ranked.slice(0, limit)
   },
 })

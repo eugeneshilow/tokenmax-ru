@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { scanClaudeCode } from '../src/adapters/claude-code.mjs';
 import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
-import { aggregateSources, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
+import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
 import { loadSecret, saveSecret, loadAuth } from '../src/secrets.mjs';
 import { login, logout } from '../src/auth.mjs';
@@ -462,6 +462,11 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   computeP.update(85);
   const { sources: costSources, totals } = aggregateSources(agg.models, rateMap);
   const usd = totals.costUsd;
+  // Per-day costUsd (same formula as the period total) → attach to each
+  // token-only daily[] entry so the server can rank by calendar period
+  // (month/year leaderboards).
+  const dailyCost = aggregateDailyCost(agg.dailyModels, rateMap);
+  const daily = agg.daily.map((d) => ({ ...d, costUsd: dailyCost.get(d.date) ?? 0 }));
   computeP.update(100);
   computeP.succeed(`Computed API-equivalent: $${fmtUsd(usd)}`);
 
@@ -504,7 +509,7 @@ async function runPipeline(opts, cliVersion, { interactive }) {
     models: agg.models,
     sources: costSources,
     totals,
-    daily: agg.daily,
+    daily,
     ...(opts.subscriptionUsd ? { subscriptionUsd: opts.subscriptionUsd } : {}),
   };
 

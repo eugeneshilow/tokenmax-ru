@@ -34,12 +34,18 @@ export const tmxSourceFields = {
   costUsd: v.number(),
 }
 
-/** Дневной столбик для графика (токены; $ по дням — V2). */
+/**
+ * Дневной столбик для графика (токены) + per-day API-equivalent $.
+ * costUsd считает клиент (CLI: та же формула, что и период-тотал) и кладёт по
+ * дням — нужно для month/year leaderboards (ранжируем сумму costUsd за период).
+ * Optional: старые публикации без per-day $ остаются валидными (день = $0).
+ */
 export const tmxDailyFields = {
   date: v.string(),
   codexTokens: v.number(),
   claudeTokens: v.number(),
   totalTokens: v.number(),
+  costUsd: v.optional(v.number()),
 }
 
 /** Суммарные токены + API-equivalent $. */
@@ -60,6 +66,8 @@ export const vTmxDailyInput = v.object({
   date: v.string(),
   codexTokens: v.number(),
   claudeTokens: v.number(),
+  // per-day API-equivalent $ (CLI считает). Optional — старые клиенты не шлют.
+  costUsd: v.optional(v.number()),
 })
 
 /** Аргументы internal-мутации publish (http уже посчитал хеши). */
@@ -314,10 +322,15 @@ export type TmxTotals = {
   costUsd: number
 }
 
-export type TmxDailyInput = { date: string; codexTokens: number; claudeTokens: number }
-export type TmxDaily = TmxDailyInput & { totalTokens: number }
+export type TmxDailyInput = {
+  date: string
+  codexTokens: number
+  claudeTokens: number
+  costUsd?: number
+}
+export type TmxDaily = TmxDailyInput & { totalTokens: number; costUsd: number }
 
-/** Дополняет дневные столбики суммарными токенами и сортирует по дате. */
+/** Дополняет дневные столбики суммарными токенами + per-day $ и сортирует по дате. */
 export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
   return daily
     .map((d) => ({
@@ -325,6 +338,9 @@ export function buildDaily(daily: TmxDailyInput[]): TmxDaily[] {
       codexTokens: Math.max(0, d.codexTokens),
       claudeTokens: Math.max(0, d.claudeTokens),
       totalTokens: Math.max(0, d.codexTokens) + Math.max(0, d.claudeTokens),
+      // Back-compat: публикация без per-day $ → день стоит $0 (не крашим, просто
+      // не учитывается в period-ранжировании).
+      costUsd: Math.max(0, d.costUsd ?? 0),
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }

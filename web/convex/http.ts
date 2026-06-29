@@ -48,7 +48,7 @@ type TmxPublishArgs = {
     totalTokens: number
     costUsd: number
   }
-  daily: Array<{ date: string; codexTokens: number; claudeTokens: number }>
+  daily: Array<{ date: string; codexTokens: number; claudeTokens: number; costUsd?: number }>
   ipHash: string
   providedSecretHash: string | null
   candidateSecretHash: string
@@ -164,6 +164,8 @@ function tmxCoerceDaily(raw: unknown): TmxPublishArgs['daily'] {
       date: typeof d?.date === 'string' ? d.date.slice(0, 10) : '',
       codexTokens: tmxInt(d?.codexTokens),
       claudeTokens: tmxInt(d?.claudeTokens),
+      // per-day $ (CLI считает; float). Старые клиенты не шлют → undefined.
+      costUsd: d?.costUsd == null ? undefined : tmxFloat(d?.costUsd),
     }))
     .filter((d) => d.date.length > 0)
 }
