@@ -113,6 +113,14 @@ const tmxRedeemSession = makeFunctionReference<
   { ok: true; handle: string; x_user_id: string } | { ok: false }
 >('tables/data_raw_tmx_auth_sessions:redeemSession')
 
+// Self-service delete: purge ALL data for a nick (profile + submissions + claim
+// + account + tokens). Called from /api/tmx/delete with the bearer-resolved handle.
+const tmxPurgeNick = makeFunctionReference<
+  'mutation',
+  { nick: string },
+  { nick: string; profiles: number; submissions: number; claims: number; accounts: number; tokens: number }
+>('admin_tmx:purgeNick')
+
 async function tmxSha256Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -456,6 +464,26 @@ http.route({
       }
     }
     return tmxJson({ ok: true }, 200)
+  }),
+})
+
+// delete (self-service): CLI sends Authorization: Bearer <token>. We resolve the
+// account from the token and purge ALL of its data. The bearer proves ownership,
+// so a user can only ever delete their OWN account. No request body needed.
+http.route({
+  path: '/api/tmx/delete',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const authHeader = request.headers.get('authorization') ?? ''
+    const bearer = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : null
+    if (!bearer) return tmxJson({ ok: false, reason: 'unauthorized' }, 401)
+    const tokenHash = await tmxSha256Hex(bearer)
+    const account = await ctx.runMutation(tmxResolveToken, { token_hash: tokenHash })
+    if (!account) return tmxJson({ ok: false, reason: 'unauthorized' }, 401)
+    const result = await ctx.runMutation(tmxPurgeNick, { nick: account.handle.toLowerCase() })
+    return tmxJson({ ok: true, ...result }, 200)
   }),
 })
 

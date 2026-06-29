@@ -495,6 +495,30 @@ export default async function TmxNickPage({ params }: TmxNickPageProps) {
             </div>
 
             <PromptCopyBox prompt={SELF_SERVE_ONELINER} />
+
+            {/* Manage this page — clearly state how to stop the daily update or delete it. */}
+            <div className="mt-6 rounded-xl border border-white/14 bg-[#0E0E0E] p-5">
+              <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#A1A1A6]">
+                manage this page
+              </p>
+              <p className="mt-2 text-[14px] font-semibold leading-6 text-[#D2D2D7]">
+                Your call, any time — run it in your terminal:
+              </p>
+              <div className="mt-3 grid gap-2 font-mono text-[13px]">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <code className="rounded bg-white/10 px-2 py-1 font-bold text-white">
+                    npx tokmax daily off
+                  </code>
+                  <span className="text-[#8A8A8F]">stop the daily auto-update on a machine</span>
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <code className="rounded bg-white/10 px-2 py-1 font-bold text-white">
+                    npx tokmax delete
+                  </code>
+                  <span className="text-[#8A8A8F]">permanently remove this page + your account</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -27,7 +27,7 @@ import { scanCodex } from '../src/adapters/codex.mjs';
 import { aggregate } from '../src/aggregate.mjs';
 import { aggregateSources, aggregateDailyCost, buildRateMap, ATTRIBUTION } from '../src/pricing.mjs';
 import { publish } from '../src/publish.mjs';
-import { loadSecret, saveSecret, loadAuth } from '../src/secrets.mjs';
+import { loadSecret, saveSecret, loadAuth, deleteAuth } from '../src/secrets.mjs';
 import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
 import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
@@ -116,6 +116,7 @@ Run:
   npx tokmax <nick>     fast direct anonymous path (no prompts)
   npx tokmax login      Sign in with X — your nick = your @handle (multi-machine)
   npx tokmax logout     sign out on this machine (logout --all = every machine)
+  npx tokmax delete     permanently delete your page + account (sign in with X first)
   npx tokmax publish    non-interactive publish using the saved token (used by the daily job)
   npx tokmax daily on   set up the daily auto-update
   npx tokmax daily off  remove the daily auto-update
@@ -418,6 +419,49 @@ async function logoutCmd(rawArgs, apiBase) {
   return 0;
 }
 
+async function deleteCmd(rawArgs, apiBase) {
+  const auth = await loadAuth();
+  if (!auth) {
+    console.log('Not signed in on this machine — nothing to delete here.');
+    console.log('(Sign in with X for one-command delete: npx tokmax login)');
+    return 0;
+  }
+  const who = auth.handle ? `@${auth.handle}` : 'your tokmax page';
+  console.log(`\n⚠️  This permanently DELETES ${who} from tokmax:`);
+  console.log('    • your public page + leaderboard entry');
+  console.log("    • every machine's data under this account");
+  console.log('    • your account and all saved logins');
+  console.log('  This cannot be undone.');
+  const ok = await confirm(`  Delete ${who}? [y/N] `); // destructive → default NO
+  if (!ok) {
+    console.log('  Cancelled — nothing was deleted.\n');
+    return 0;
+  }
+  let json = null;
+  let httpStatus = 0;
+  try {
+    const res = await fetch(`${apiBase}/api/tmx/delete`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${auth.token}` },
+    });
+    httpStatus = res.status;
+    json = await res.json().catch(() => null);
+  } catch (err) {
+    console.error(`  Network error: ${err && err.message ? err.message : err}. Nothing was deleted.`);
+    return 1;
+  }
+  if (httpStatus !== 200 || !json || !json.ok) {
+    console.error(`  Could not delete (HTTP ${httpStatus}). Your page was NOT removed.`);
+    return 1;
+  }
+  // Server data is gone — now clean THIS machine: remove the daily job + local token.
+  await removeDaily().catch(() => {});
+  await deleteAuth().catch(() => {});
+  console.log(`\n  ✓ Deleted. ${who} is gone, your account removed, and this machine signed out.`);
+  console.log('  The daily auto-update on this machine (if any) was removed too.\n');
+  return 0;
+}
+
 async function dailyCmd(rawArgs) {
   const sub = (rawArgs[1] || '').toLowerCase();
   if (sub === 'on') {
@@ -683,18 +727,32 @@ async function runPipeline(opts, cliVersion, { interactive }) {
 async function offerDaily() {
   const status = await dailyStatus();
   if (status.installed) return;
-  const yes = await confirm(
-    'Set up a daily auto-update? Keeps your number fresh on the leaderboard. [y/N] ',
-  );
-  if (!yes) return;
+  // Explain the mechanism BEFORE asking (request: be clear how it works + that
+  // it changes nothing about the security boundary).
+  console.log('\nKeep your number fresh automatically?');
+  console.log('  How it works: while THIS machine is on, a scheduled job (launchd on macOS,');
+  console.log('  cron on Linux) runs once a day. It re-runs the same publish locally — reads your');
+  console.log('  saved sign-in token (~/.config/tokenmax/auth.json, chmod 600, never leaves the');
+  console.log('  machine), recomputes your aggregate, and sends only the numbers. Same data');
+  console.log('  boundary as right now; the schedule never stores your token, nothing new is sent.');
+  const yes = await confirm('  Set it up? [Y/n] ', { defaultYes: true });
+  if (!yes) {
+    console.log('  Skipped — nothing scheduled. Turn it on later: npx tokmax daily on\n');
+    return;
+  }
   const res = await installDaily();
   if (!res.ok) {
-    console.error(`Could not set up the daily auto-update: ${res.detail || 'unknown error'}`);
+    console.error(`  Could not set up the daily auto-update: ${res.detail || 'unknown error'}`);
     return;
   }
   const at = `${String(res.time.hour).padStart(2, '0')}:${String(res.time.minute).padStart(2, '0')}`;
-  console.log(`✓ Daily auto-update is on (${res.platform}). It runs every day around ${at}.`);
-  console.log('  Turn it off any time with: npx tokmax daily off');
+  // Tell the user EXACTLY what was set up + how to turn it off.
+  console.log(`\n  ✓ Done — set up on ${res.platform}:`);
+  console.log(`    • runs once a day around ${at}, only while this machine is on`);
+  console.log('    • re-runs `npx tokmax publish` locally with your saved token; sends only aggregates');
+  console.log('  Turn it OFF any time:');
+  console.log('    • this machine:  npx tokmax daily off');
+  console.log('    • check status:  npx tokmax daily status\n');
 }
 
 // ── Non-interactive publish (used by the daily job) ───────────────────────────
@@ -727,6 +785,7 @@ async function main() {
   // as a nick).
   if (rawArgs[0] === 'login') return loginCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'logout') return logoutCmd(rawArgs, resolveApiBase(rawArgs));
+  if (rawArgs[0] === 'delete') return deleteCmd(rawArgs, resolveApiBase(rawArgs));
   if (rawArgs[0] === 'daily') return dailyCmd(rawArgs);
   if (rawArgs[0] === 'publish') return publishCmd(rawArgs.slice(1));
 
