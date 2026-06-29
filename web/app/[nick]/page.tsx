@@ -349,20 +349,52 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </p>
             ) : null}
 
+            {/* Casino-dopamine PROFIT block: green glow, huge +$profit + N× (owner: «PROFIT
+                зелёным + сколько иксов, стилистика аля казино, куча дофамина»). Only when a
+                subscription is known. <1× = no shaming, "room to burn" instead. */}
             {econ ? (
-              <div className="mt-6 inline-flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-[#18D86B]/40 bg-[#18D86B]/10 px-5 py-4">
-                <div>
-                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9EFFBF]">
-                    {t.econLabel}
+              econ.profit >= 0 ? (
+                <div className="mt-6 max-w-2xl overflow-hidden rounded-2xl border-2 border-[#18D86B]/60 bg-gradient-to-br from-[#0B2417] to-[#06160D] px-6 py-5 shadow-[0_0_44px_-8px_rgba(24,216,107,0.55)]">
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#9EFFBF]">
+                    🤑 you beat your subscription
                   </p>
-                  <p className="text-[40px] font-black leading-none text-[#18D86B]">
-                    {econ.ratio.toFixed(1)}×
+                  <div className="mt-2 flex flex-wrap items-end gap-x-10 gap-y-3">
+                    <div>
+                      <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
+                        profit
+                      </p>
+                      <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
+                        +{formatUsd(econ.profit)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
+                        return
+                      </p>
+                      <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
+                        {econ.ratio.toFixed(1)}×
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[14px] font-semibold leading-6 text-[#B9FFD5]">
+                    {formatUsdPrecise(econ.sub)}/mo plan → {formatUsdPrecise(viewCost)} of API value.
+                    You&apos;re up {econ.ratio.toFixed(1)}× 🔥
                   </p>
                 </div>
-                <p className="max-w-md text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                  {t.econSentence}
-                </p>
-              </div>
+              ) : (
+                <div className="mt-6 max-w-2xl rounded-2xl border border-[#FF7A1A]/45 bg-[#FF7A1A]/10 px-6 py-5">
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#FFB877]">
+                    🔥 room to burn
+                  </p>
+                  <p className="mt-2 text-[30px] font-black leading-none text-[#FF7A1A] sm:text-[36px]">
+                    {formatUsd(viewCost)} of {formatUsd(econ.subTotal)}
+                  </p>
+                  <p className="mt-2 text-[14px] font-semibold leading-6 text-[#F2C9A8]">
+                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× so
+                    far. Keep going.
+                  </p>
+                </div>
+              )
             ) : null}
 
             {/* Repo — visible (owner: the GitHub repo must be clearly shown) + attribution. */}

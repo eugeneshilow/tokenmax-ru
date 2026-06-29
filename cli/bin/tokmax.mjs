@@ -190,6 +190,17 @@ function confirm(question, { defaultYes = false } = {}) {
   });
 }
 
+// One-line free prompt (returns the trimmed answer). Used for the subscription picker.
+function promptLine(question) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve((answer || '').trim());
+    });
+  });
+}
+
 function validateNick(raw) {
   const nick = String(raw || '').trim();
   if (!nick) return { ok: false, msg: 'empty nick' };
@@ -596,6 +607,22 @@ async function runPipeline(opts, cliVersion, { interactive }) {
   console.log(`Total tokens: ${fmtInt(agg.totalTokens)}`);
   console.log(`API-equivalent: $${fmtUsd(usd)}`);
   console.log(ATTRIBUTION);
+
+  // Capture the subscription cheaply (presets) so the page shows the dopamine PROFIT/×.
+  // Ask once, only when interactive and not already known (skips daily/--yes/dry paths).
+  if (interactive && !opts.yes && !opts.subscriptionUsd) {
+    console.log('\n💸 What do you pay per month for AI coding? (we show how many × you beat it)');
+    console.log('   [1] $20  ·  [2] $100  ·  [3] $200  ·  [4] custom  ·  [Enter] skip');
+    const pick = await promptLine('   choice: ');
+    const preset = { 1: 20, 2: 100, 3: 200 }[pick];
+    if (preset) {
+      opts.subscriptionUsd = preset;
+    } else if (pick === '4') {
+      const c = await promptLine('   $/mo: ');
+      const n = Number(c.replace(/[^0-9.]/g, ''));
+      if (Number.isFinite(n) && n > 0) opts.subscriptionUsd = n;
+    }
+  }
 
   if (opts.subscriptionUsd && agg.firstDay && agg.lastDay) {
     const days = Math.max(
