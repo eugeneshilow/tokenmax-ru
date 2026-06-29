@@ -31,7 +31,7 @@ import { login, logout } from '../src/auth.mjs';
 import { startProgress } from '../src/progress.mjs';
 import { installDaily, removeDaily, dailyStatus } from '../src/daily.mjs';
 
-const DEFAULT_API = 'https://chatty-boar-479.convex.site';
+const DEFAULT_API = 'https://gallant-wildcat-346.convex.site';
 const PAGE_BASE = 'https://tokmax.vibecoding.tech'; // canonical served page (availability check)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
