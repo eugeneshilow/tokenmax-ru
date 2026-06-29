@@ -1,10 +1,11 @@
 import { v } from 'convex/values'
-import { internalMutation, internalQuery } from '../_generated/server'
+import { internalMutation } from '../_generated/server'
 
 // "Sign in with X": верифицированный аккаунт (mutable display поверх
 // иммутабельного x_user_id). Все мутации internal — пишутся только из action
-// xAuth/http (после проверки подлинности X / токена). X access-токены тут НЕ
-// хранятся; token_hash — SHA-256 от account-токена (сам токен наружу один раз).
+// xAuth/http (после проверки подлинности X). X access-токены тут НЕ хранятся.
+// Account-токены живут в biz_tmx_account_tokens (по одному на машину) — резолв
+// токена и revoke см. там, а не здесь.
 
 /** Upsert аккаунта по immutable x_user_id; handle/name/avatar — refresh каждый логин. */
 export const upsertAccount = internalMutation({
@@ -41,37 +42,5 @@ export const upsertAccount = internalMutation({
       })
     }
     return null
-  },
-})
-
-/** Резолв аккаунта по SHA-256(account-токен) — для Bearer-публикации. */
-export const getByTokenHash = internalQuery({
-  args: { token_hash: v.string() },
-  returns: v.union(
-    v.object({ x_user_id: v.string(), handle: v.string() }),
-    v.null()
-  ),
-  handler: async (ctx, args) => {
-    const account = await ctx.db
-      .query('biz_tmx_accounts')
-      .withIndex('by_token_hash', (q) => q.eq('token_hash', args.token_hash))
-      .unique()
-    if (!account) return null
-    return { x_user_id: account.x_user_id, handle: account.handle }
-  },
-})
-
-/** logout/revoke: обнулить token_hash аккаунта, владеющего этим токеном. */
-export const revokeByTokenHash = internalMutation({
-  args: { token_hash: v.string() },
-  returns: v.object({ ok: v.boolean() }),
-  handler: async (ctx, args) => {
-    const account = await ctx.db
-      .query('biz_tmx_accounts')
-      .withIndex('by_token_hash', (q) => q.eq('token_hash', args.token_hash))
-      .unique()
-    if (!account) return { ok: false }
-    await ctx.db.patch(account._id, { token_hash: null, updated_at: Date.now() })
-    return { ok: true }
   },
 })

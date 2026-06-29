@@ -71,23 +71,41 @@ export default defineSchema({
 
   // "Sign in with X": верифицированный аккаунт. Ключ — ИММУТАБЕЛЬНЫЙ x_user_id;
   // handle/name/avatar_url — mutable display (обновляются на каждом логине).
-  // token_hash — SHA-256 от account-токена (сам токен не хранится, отдаётся
-  // CLI один раз); null после logout/revoke. X access-токены тут НЕ хранятся
-  // (offline.access не запрашиваем — identity читается один раз при логине).
+  // X access-токены тут НЕ хранятся (offline.access не запрашиваем — identity
+  // читается один раз при логине). token_hash — DEPRECATED: account-токены
+  // теперь живут в biz_tmx_account_tokens (по одному на машину), чтобы вход со
+  // второй машины не инвалидировал первую. Поле оставлено nullable для
+  // обратной совместимости и больше не читается/не пишется со смыслом.
   biz_tmx_accounts: defineTable({
     x_user_id: v.string(),
     handle: v.string(),
     name: v.string(),
     avatar_url: v.string(),
+    // DEPRECATED (см. biz_tmx_account_tokens) — всегда null.
     token_hash: v.union(v.string(), v.null()),
     created_at: v.number(),
     updated_at: v.number(),
   })
     .index('by_x_user_id', ['x_user_id'])
-    .index('by_token_hash', ['token_hash'])
     // P2 legacy-downgrade: быстрый ответ «занят ли ник верифицированным
     // аккаунтом» при анонимной (legacy) публикации.
     .index('by_handle', ['handle']),
+
+  // "Sign in with X" — multi-token store: один ряд на залогиненную машину.
+  // Минт нового токена (вход с новой машины) ДОБАВЛЯЕТ ряд и НЕ инвалидирует
+  // остальные → мульти-комп работает по-настоящему. token_hash — SHA-256 от
+  // account-токена (сам токен отдаётся CLI один раз, не хранится). logout
+  // удаляет ряд этой машины; logout-all — все ряды аккаунта. machine_label —
+  // best-effort метка (hostname), чтобы владелец узнавал устройство.
+  biz_tmx_account_tokens: defineTable({
+    account_x_user_id: v.string(),
+    token_hash: v.string(),
+    machine_label: v.union(v.string(), v.null()),
+    created_at: v.number(),
+    last_used_at: v.number(),
+  })
+    .index('by_token_hash', ['token_hash'])
+    .index('by_account', ['account_x_user_id']),
 
   // "Sign in with X": короткоживущая OAuth2-сессия (state + PKCE). Создаётся в
   // begin, потребляется один раз в complete (CSRF/replay-защита), затем держит

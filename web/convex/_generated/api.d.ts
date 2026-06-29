@@ -13,6 +13,7 @@ import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_tmx from "../lib/tmx.js";
 import type * as lib_x_auth from "../lib/x_auth.js";
+import type * as tables_biz_tmx_account_tokens from "../tables/biz_tmx_account_tokens.js";
 import type * as tables_biz_tmx_accounts from "../tables/biz_tmx_accounts.js";
 import type * as tables_data_cooked_tmx_profiles from "../tables/data_cooked_tmx_profiles.js";
 import type * as tables_data_raw_tmx_auth_sessions from "../tables/data_raw_tmx_auth_sessions.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/tmx": typeof lib_tmx;
   "lib/x_auth": typeof lib_x_auth;
+  "tables/biz_tmx_account_tokens": typeof tables_biz_tmx_account_tokens;
   "tables/biz_tmx_accounts": typeof tables_biz_tmx_accounts;
   "tables/data_cooked_tmx_profiles": typeof tables_data_cooked_tmx_profiles;
   "tables/data_raw_tmx_auth_sessions": typeof tables_data_raw_tmx_auth_sessions;

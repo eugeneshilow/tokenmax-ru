@@ -94,9 +94,11 @@ export const attachExchange = internalMutation({
 })
 
 /**
- * redeem: АТОМАРНО потребить exchange_code (one-time + TTL + PKCE-style proof),
- * затем записать SHA-256(account-токен) на аккаунт. Сам токен генерится/хешится
- * выше (httpAction); сюда приходит только token_hash.
+ * redeem: АТОМАРНО потребить exchange_code (one-time + TTL + PKCE-style proof) и
+ * вернуть identity аккаунта (handle + immutable x_user_id). Сам account-токен
+ * генерится/хешится выше (httpAction) и кладётся в biz_tmx_account_tokens
+ * отдельной мутацией — здесь токен НЕ пишется (multi-token: вход с новой машины
+ * добавляет ряд, не инвалидируя другие).
  *
  * P1 (кража токена через перехват loopback-URL): связка — не cli_nonce (он
  * ехал бы в том же URL, что и exchange_code, и потому не защищал бы), а
@@ -108,10 +110,9 @@ export const redeemSession = internalMutation({
   args: {
     exchange_code_hash: v.string(),
     redeem_secret_hash: v.string(),
-    token_hash: v.string(),
   },
   returns: v.union(
-    v.object({ ok: v.literal(true), handle: v.string() }),
+    v.object({ ok: v.literal(true), handle: v.string(), x_user_id: v.string() }),
     v.object({ ok: v.literal(false) })
   ),
   handler: async (ctx, args) => {
@@ -132,11 +133,10 @@ export const redeemSession = internalMutation({
       .unique()
     if (!account) return { ok: false as const }
 
-    // Одноразовость: гасим exchange_code (повторный redeem невозможен).
+    // Одноразовость: гасим exchange_code (повторный redeem невозможен). Токен в
+    // biz_tmx_account_tokens пишет httpAction отдельной мутацией (insertToken).
     await ctx.db.patch(session._id, { exchange_code_hash: null })
-    // Минт нового токена ротирует прежний (один активный token_hash на аккаунт).
-    await ctx.db.patch(account._id, { token_hash: args.token_hash, updated_at: Date.now() })
-    return { ok: true as const, handle: account.handle }
+    return { ok: true as const, handle: account.handle, x_user_id: account.x_user_id }
   },
 })
 

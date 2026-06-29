@@ -17,6 +17,7 @@
 // carries just the exchange_code) is useless to a remote attacker without the
 // redeem_secret that lives only inside this CLI process.
 
+import os from 'node:os';
 import http from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -105,7 +106,7 @@ function startLoopback() {
       res.end(
         '<!doctype html><meta charset="utf-8"><title>tokmax</title>' +
           '<body style="font-family:system-ui,sans-serif;background:#0a0a0a;color:#e5e5e5;text-align:center;padding-top:80px">' +
-          '<h2>Готово — вернись в терминал</h2><p>Эту вкладку можно закрыть.</p></body>',
+          '<h2>Signed in — back to your terminal</h2><p>You can close this tab.</p></body>',
       );
       resolveResult({ code });
     });
@@ -117,7 +118,7 @@ function startLoopback() {
       server.listen(port, '127.0.0.1');
       server.once('listening', () => {
         const timer = setTimeout(() => {
-          rejectResult(new Error('Время ожидания входа истекло.'));
+          rejectResult(new Error('Login timed out.'));
         }, LOOPBACK_TIMEOUT_MS);
         // Stop the timer once we have a result either way.
         resultPromise.finally(() => clearTimeout(timer));
@@ -135,8 +136,13 @@ function startLoopback() {
   });
 }
 
-/** Full login flow. Returns { handle, file } on success; throws on failure. */
-export async function login(apiBase) {
+/**
+ * Full login flow. Returns { handle, file } on success; throws on failure.
+ * machineLabel (best-effort hostname) is stored server-side on this machine's
+ * token row so the owner can recognise the device; multi-machine login is
+ * additive — a new login never invalidates another machine's token.
+ */
+export async function login(apiBase, machineLabel = os.hostname()) {
   // High-entropy redeem_secret (256-bit). Only its SHA-256 travels in the /start
   // URL; the raw secret stays in this process and is shown only to /redeem s2s.
   const redeemSecret = randomBytes(32).toString('hex');
@@ -144,8 +150,8 @@ export async function login(apiBase) {
   const { server, port, resultPromise } = await startLoopback();
 
   const startUrl = `${WEB_BASE}/api/auth/x/start?port=${port}&rsh=${encodeURIComponent(redeemSecretHash)}`;
-  console.log('Открываю браузер для входа через X…');
-  console.log(`Если не открылось — открой вручную:\n  ${startUrl}\n`);
+  console.log('Opening your browser to sign in with X…');
+  console.log(`If it did not open, paste this URL manually:\n  ${startUrl}\n`);
   openBrowser(startUrl);
 
   let exchange;
@@ -161,7 +167,11 @@ export async function login(apiBase) {
   const res = await fetch(`${apiBase}/api/auth/x/redeem`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ exchange_code: exchange.code, redeem_secret: redeemSecret }),
+    body: JSON.stringify({
+      exchange_code: exchange.code,
+      redeem_secret: redeemSecret,
+      machine_label: machineLabel || null,
+    }),
   });
   let json = null;
   try {
@@ -170,7 +180,7 @@ export async function login(apiBase) {
     json = null;
   }
   if (!res.ok || !json || !json.ok || typeof json.token !== 'string') {
-    throw new Error(`Не удалось завершить вход (HTTP ${res.status}).`);
+    throw new Error(`Could not complete sign-in (HTTP ${res.status}).`);
   }
 
   const file = await saveAuth({
@@ -181,13 +191,21 @@ export async function login(apiBase) {
   return { handle: json.handle, file };
 }
 
-/** Logout: delete local auth.json + best-effort server-side revoke. */
-export async function logout(apiBase, token) {
+/**
+ * Logout: delete local auth.json + best-effort server-side revoke.
+ * @param {boolean} all - true → revoke EVERY machine's token for the account;
+ *                        false → revoke only this machine's token.
+ */
+export async function logout(apiBase, token, all = false) {
   if (token) {
     try {
       await fetch(`${apiBase}/api/auth/x/revoke`, {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}` },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ all: Boolean(all) }),
       });
     } catch {
       // Best-effort — local delete below is what actually logs this machine out.
