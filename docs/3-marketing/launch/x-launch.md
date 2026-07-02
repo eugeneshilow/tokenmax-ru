@@ -5,6 +5,43 @@ time). Account: @eugeneshilow. Fill `$___` placeholders with LIVE numbers at
 post time (profile card / hub show them). Rule: post native screenshots of the
 cards; the LINK goes in the FIRST REPLY (X throttles link posts).
 
+## Cold-start: fair shot for a dormant account (do BEFORE the thread)
+
+State at launch: 6.2k followers, Premium/verified — real base — but the
+account slept for ~7 months. A cold account's first post gets a tiny test
+audience; the plan below buys back distribution. In order of impact:
+
+1. **Fix the profile face (15 min, non-negotiable).** Avatar + banner (use
+   the Money Terminal receipt as the banner), bio: "tokenmaxxing, verified ·
+   built tokmax — your AI coding burn at API prices", link → tokmax.dev.
+   Audit the top/pinned post: if the last visible post is spam residue —
+   delete it. Every board follow-back lands on this profile; a faceless page
+   kills the loop.
+2. **Warm-up before posting (30-60 min, same day).** 5-10 SUBSTANTIVE
+   replies under fresh posts from big AI-coding accounts (search "Fable 5",
+   "Claude Code" — reply with numbers/receipts, not "great post"). Warms the
+   algo, puts the avatar in feeds, earns pre-launch profile visits.
+3. **Telegram ignition (the unfair advantage).** The RU audience is the
+   owner's real distribution; the PRODUCT stays international but ignition
+   can be RU: post in the personal TG channel "запустил международную штуку,
+   вот тред — первый час решает" right AFTER the thread goes live. First-hour
+   velocity from real accounts = the algorithm's green light.
+4. **Seed DMs (before posting).** 10-20 friendly accounts: "dropping this in
+   an hour — if it resonates, a QRT means a lot". Ask for QRTs, not likes.
+5. **Banger first, thread second.** For a cold account a single-image post
+   outperforms a thread. Post 1: one receipt screenshot + one line ("I burned
+   $___ at API prices this month — 22× my subscriptions. Receipt:"), zero
+   links. 1-2h later post the full thread; QRT the banger into it.
+6. **Reply-guy the hot keyword.** The highest-reach surface today isn't the
+   timeline — it's replies under Anthropic's Fable 5 posts and big accounts
+   arguing about the 50% cap. Reply with the receipt + one line; the account
+   rides THEIR distribution.
+7. **First hour = reply storm.** Answer everything within 60 minutes;
+   velocity decides whether X widens the audience.
+8. **Honest expectation.** Nothing guarantees virality; this stack converts
+   one lottery ticket into ~six. The franchise design (a board per model
+   launch) means even a modest week compounds into the next one.
+
 ## Launch thread (post ASAP, pin it)
 
 Attach: screenshot 1 = Fable 5 Week card from the profile; screenshot 2 = the

@@ -35,6 +35,29 @@ PH = product-first; Reddit = community-first (value, then link).
 5. **Ongoing:** every future model launch = a new launch-week board = a new
    full cycle of this plan with fresh data.
 
+## Account prep — "кабинеты" (owner-only, spread over Jul 2-7)
+
+Accounts and karma AGE — prep during the event week so launch days are
+click-and-paste. Agents never create accounts or log in; this list is the
+owner's, ~15-20 min/day:
+
+- **X (today):** avatar + banner + bio + tokmax.dev link; audit/delete the
+  suspicious last post (possible spam residue); Premium already active ✅.
+- **Product Hunt (Jul 3-4):** log into the maker account (or create), full
+  profile (avatar, bio, X link). Create the product page as a draft and open
+  a "Coming soon" teaser page — it collects followers who get notified on
+  launch day. Self-hunting is normal now; no hunter-hunting needed.
+- **Hacker News (Jul 3, then daily):** account exists? If fresh/zero-karma:
+  make 2-3 GENUINE comments per day in AI threads through the week — not
+  karma farming, just presence; a zero-history account posting Show HN is a
+  flag-magnet.
+- **Reddit (Jul 3, then daily):** check account age/karma; r/ClaudeAI and
+  r/ChatGPTCoding filter low-karma posters. Same recipe: a few genuine
+  comments per day in the target subs all week; join each sub now.
+- **dev.to (Jul 5):** create account + profile (for the blog post mirror).
+- **GitHub (any day):** repo social-preview image + topics (owner clicks
+  Settings; image comes from Codex's gallery batch).
+
 ## Channel matrix
 
 | # | Channel | Asset | Who posts | Prep owner |
