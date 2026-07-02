@@ -1,3 +1,6 @@
+import { AnsiMoney } from '@/components/ansi-money'
+import { TerminalCard } from '@/components/terminal-card'
+import { fable5Countdown } from '@/lib/fable5'
 import { formatCompactNumber, formatInteger, formatUsd, formatUsdPrecise } from '@/lib/format'
 import {
   loadTmxProfile,
@@ -152,6 +155,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   const board = await loadTmxLeaderboard(200)
   const rankIdx = board.findIndex((r) => r.nick === profile.nick)
   const rank = rankIdx >= 0 ? rankIdx + 1 : null
+  const countdown = fable5Countdown()
 
   // One-click share: pre-filled post with the numbers. The paste/screenshot IS
   // the viral loop — the button must cost the visitor zero effort.
@@ -231,7 +235,7 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
   return (
     <div className="bg-[#F5F5F7] text-[#1D1D1F] [font-variant-numeric:tabular-nums]">
       <section className="border-b border-[#242428] bg-[#070707] text-white">
-        <div className="mx-auto grid max-w-[1680px] gap-8 px-4 py-8 md:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
+        <div className="mx-auto grid max-w-[1680px] gap-8 px-4 py-8 md:px-6 md:py-10 lg:grid-cols-[minmax(0,1fr)_minmax(480px,640px)] lg:gap-10">
           <div className="min-w-0">
             {/* Brand mark: the tool · the project — vibecoding.tech must be screenshot-visible. */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -270,10 +274,10 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </div>
             ) : null}
 
-            {/* Hero stat: nick + the huge orange number. */}
-            <h1 className="mt-6 max-w-5xl text-balance text-[42px] font-black leading-[0.92] tracking-normal text-white sm:text-[60px] lg:text-[78px]">
-              {profile.nick} burned
-              <br />
+            {/* Compact heading — the giant number now lives in the terminal
+                receipt on the right (the Money Terminal screenshot artifact). */}
+            <h1 className="mt-6 max-w-4xl text-balance text-[30px] font-black leading-[1.0] tracking-normal text-white sm:text-[38px] lg:text-[44px]">
+              {profile.nick} burned{' '}
               <span className="text-[#FF7A1A]">{formatUsd(viewCost)}</span> at API prices.
             </h1>
 
@@ -320,86 +324,11 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               </div>
             ) : null}
 
-            {/* BIG command — the screenshot-zone CTA: run this, get your own page. */}
-            <div className="mt-6 inline-flex items-center gap-3 rounded-xl border border-white/25 bg-[#0E0E0E] px-5 py-4">
-              <span className="font-mono text-[24px] font-black leading-none text-[#18D86B] md:text-[32px]">$</span>
-              <span className="font-mono text-[26px] font-black leading-none tracking-tight text-white md:text-[38px]">
-                npx tokmax
-              </span>
-              <span className="ml-1 hidden font-mono text-[12px] font-bold uppercase tracking-[0.08em] text-[#8A8A8F] sm:inline">
-                ← run it,
-                <br />
-                get your own
-              </span>
-            </div>
-
-            {effectivePeriod === 'all' && rank ? (
-              <Link
-                href="/leaderboard"
-                className="mt-5 inline-flex h-11 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 text-[16px] font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
-              >
-                🏆 #{rank} on the leaderboard
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            ) : null}
-
             {profile.suspicious ? (
               <p className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold text-[#A1A1A6]">
                 <ShieldAlert className="h-4 w-4" />
                 {t.notVerified}
               </p>
-            ) : null}
-
-            {/* Casino-dopamine PROFIT block: green glow, huge +$profit + multiplier. Only when a
-                subscription is known. <1× = no shaming, "room to burn" instead. */}
-            {econ ? (
-              econ.profit >= 0 ? (
-                <div className="mt-6 max-w-2xl overflow-hidden rounded-2xl border-2 border-[#18D86B]/60 bg-gradient-to-br from-[#0B2417] to-[#06160D] px-6 py-5 shadow-[0_0_44px_-8px_rgba(24,216,107,0.55)]">
-                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#9EFFBF]">
-                    🤑 last 30 days · you beat your subscription
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-end gap-x-10 gap-y-3">
-                    <div>
-                      <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
-                        profit · last 30d
-                      </p>
-                      <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
-                        +{formatUsd(econ.profit)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-[#6BE39A]">
-                        return
-                      </p>
-                      <p className="text-[46px] font-black leading-none text-[#1BE673] [text-shadow:0_0_22px_rgba(27,230,115,0.65)] sm:text-[58px]">
-                        {econ.ratio.toFixed(1)}×
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[14px] font-semibold leading-6 text-[#B9FFD5]">
-                    {formatUsdPrecise(econ.windowBurn)} of API value in the last 30 days on your{' '}
-                    {formatUsdPrecise(econ.sub)}/mo plan. You&apos;re up {econ.ratio.toFixed(1)}× 🔥
-                  </p>
-                  {/* Crop-proof attribution: this block is the most screenshotted
-                      crop on the page — the URL must survive the crop. */}
-                  <p className="mt-4 border-t border-[#18D86B]/25 pt-3 font-mono text-[12px] font-bold text-[#6BE39A]">
-                    {shareUrl}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-6 max-w-2xl rounded-2xl border border-[#FF7A1A]/45 bg-[#FF7A1A]/10 px-6 py-5">
-                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#FFB877]">
-                    🔥 last 30 days · room to burn
-                  </p>
-                  <p className="mt-2 text-[30px] font-black leading-none text-[#FF7A1A] sm:text-[36px]">
-                    {formatUsd(econ.windowBurn)} of {formatUsd(econ.sub)}
-                  </p>
-                  <p className="mt-2 text-[14px] font-semibold leading-6 text-[#F2C9A8]">
-                    {formatUsdPrecise(econ.sub)}/mo plan — you&apos;re at {econ.ratio.toFixed(1)}× over
-                    the last 30 days. Keep going.
-                  </p>
-                </div>
-              )
             ) : null}
 
             {/* Repo — visible (owner: the GitHub repo must be clearly shown) + attribution. */}
@@ -457,54 +386,79 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
             </div>
           </div>
 
-          <aside className="self-end border border-white/14 bg-white/[0.06] p-4">
-            <div className="border-b border-white/14 pb-5">
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-mono text-[12px] font-black uppercase tracking-[0.08em] text-[#A1A1A6]">
-                  {t.asideApiEquivalent}
+          {/* The Money Terminal receipt — THE screenshot artifact of the page
+              (canon: terminal-card mockup, decision-log 2026-07-02). */}
+          <aside className="min-w-0 self-start">
+            <TerminalCard title={`${profile.nick} — npx tokmax`} glow>
+              <div className="p-5 font-mono text-[13px] leading-relaxed">
+                <p>
+                  <span className="text-[#6E6E73]">$</span>{' '}
+                  <span className="font-bold text-white">npx tokmax</span>
                 </p>
-                <Flame className="h-5 w-5 text-[#FF7A1A]" />
-              </div>
-              <p className="mt-3 text-[54px] font-black leading-[0.85] text-[#FF7A1A] md:text-[64px]">
-                {formatUsd(viewCost)}
-              </p>
-              <p className="mt-3 text-[13px] font-semibold text-[#A1A1A6]">
-                {t.asideApiPrice}
-              </p>
-            </div>
-
-            <div className="mt-4 border border-[#3861FB]/40 bg-[#0A1733] p-4 text-[#DCE7FF]">
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-mono text-[11px] font-black uppercase tracking-[0.08em] text-[#9DBBFF]">
-                  {t.asideTokensTotal}
+                <p className="mt-1 text-[#A1A1A6]">
+                  <span className="text-[#18D86B]">✔</span> scanned ·{' '}
+                  {profile.machineLabels.length} machine
+                  {profile.machineLabels.length === 1 ? '' : 's'} · {viewDaily.length} days · cli{' '}
+                  {profile.cliVersion}
                 </p>
-                <Gauge className="h-5 w-5 text-[#3861FB]" />
-              </div>
-              <p className="mt-3 text-[34px] font-black leading-none text-[#7DA2FF] md:text-[42px]">
-                {formatCompactNumber(viewTokens)}
-              </p>
-              <p className="mt-3 text-[13px] font-bold text-[#9DBBFF]">
-                {t.asideTokensCount}
-              </p>
-            </div>
 
-            <div className="mt-5 grid gap-1 font-mono text-[12px] font-bold uppercase tracking-normal text-[#A1A1A6]">
-              <div className="flex items-center justify-between gap-4">
-                <span>{t.rowPeriod}</span>
-                <span className="text-[#D2D2D7]">
-                  {fmtDate(viewFirst)} — {fmtDate(viewLast)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>{t.rowDays}</span>
-                <span className="text-[#D2D2D7]">{viewDaily.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>{t.rowCli}</span>
-                <span className="text-[#D2D2D7]">{profile.cliVersion}</span>
-              </div>
-            </div>
+                <div className="mt-4 overflow-hidden rounded-lg border border-[#2E2E33]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#242428] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#A1A1A6]">
+                    <span>tokmax · api-equivalent spend</span>
+                    {!countdown.over && countdown.started ? (
+                      <span className="shrink-0 font-black text-[#FF7A1A]">
+                        fable 5 · day {countdown.day}/7
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="px-4 py-4">
+                    <AnsiMoney value={formatUsd(viewCost)} />
+                    <p className="mt-3 text-[#A1A1A6]">
+                      at API prices · <span className="font-bold text-white">{formatInteger(viewTokens)}</span>{' '}
+                      tokens <span className="text-[#6E6E73]">({formatCompactNumber(viewTokens)})</span>
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      {econ && econ.profit >= 0 ? (
+                        <p className="font-bold text-[#18D86B]">
+                          ▲ +{formatUsd(econ.profit)} profit · {econ.ratio.toFixed(1)}×{' '}
+                          <span className="font-normal text-[#6BE39A]">
+                            vs your {formatUsd(econ.sub)}/mo plan
+                          </span>
+                        </p>
+                      ) : null}
+                      {econ && econ.profit < 0 ? (
+                        <p className="text-[#FF7A1A]">
+                          🔥 {formatUsd(econ.windowBurn)} of {formatUsd(econ.sub)}/mo plan · room to
+                          burn
+                        </p>
+                      ) : null}
+                      {effectivePeriod === 'all' && rank ? (
+                        <p className="text-white">
+                          🏆 <span className="font-bold">#{rank}</span> on the leaderboard
+                        </p>
+                      ) : null}
+                      {!countdown.over && (profile.fable5LaunchCostUsd ?? 0) > 0 ? (
+                        <p className="text-[#D2D2D7]">
+                          ⏳ <span className="font-bold text-[#FF7A1A]">FABLE 5</span> · day{' '}
+                          {countdown.day} of 7 · {formatUsd(profile.fable5LaunchCostUsd)} in window ·{' '}
+                          <span className="font-bold text-[#FF7A1A]">
+                            {countdown.daysLeft} day{countdown.daysLeft === 1 ? '' : 's'} left
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="border-t border-[#242428] px-4 py-2">
+                    <span className="text-[#6E6E73]">your page → </span>
+                    <span className="font-bold text-[#FF7A1A]">{shareUrl}</span>
+                  </div>
+                </div>
 
+                <p className="mt-3 text-[12px] text-[#6E6E73]">
+                  ⌘⇧4 — screenshot the receipt above. It&apos;s built for it.
+                </p>
+              </div>
+            </TerminalCard>
           </aside>
         </div>
       </section>
