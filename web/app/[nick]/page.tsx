@@ -367,17 +367,9 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
               <span className="text-[#6E6E73]">· {t.attribution}</span>
             </div>
 
-            {/* Actions + classy screenshot nudge. */}
+            {/* Actions — this is the USER's page: no maker links here, the
+                page belongs to the nick (their X link lives on verified rows). */}
             <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
-              <Link
-                href="https://x.com/eugeneshilow"
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                @eugeneshilow
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
               <Link
                 href="/leaderboard"
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#FF7A1A]/50 bg-[#FF7A1A]/12 px-4 font-black text-[#FFB877] transition-colors hover:bg-[#FF7A1A]/20"
@@ -636,17 +628,8 @@ export default async function TmxNickPage({ params, searchParams }: TmxNickPageP
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-[14px] font-bold">
                 <Link
-                  href="https://x.com/eugeneshilow"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  @eugeneshilow
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-                <Link
                   href="/"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 text-white transition-colors hover:bg-white/10"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-[#070707] transition-colors hover:bg-[#E8E8ED]"
                 >
                   <Terminal className="h-4 w-4" />
                   {t.howComputed}
